@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Never commit anything personal. The corpus lives in ~/.visa, not here, but be explicit.
+me/
+profile.toml
+*.parquet
+*.npy
+.pytest_cache/

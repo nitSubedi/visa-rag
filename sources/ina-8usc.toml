@@ -1,0 +1,10 @@
+slug = "ina-8usc"
+title = "Immigration and Nationality Act — 8 U.S.C."
+tier = 1
+kind = "statute"
+jurisdiction = "US-federal"
+fetcher = "uscode-zip"
+chunker = "uscode"
+url = "https://uscode.house.gov/download/releasepoints/us/pl/119/1/xml_usc08@119-1.zip"
+refresh_days = 90
+note = "Highest precedence. Regulations and policy must yield to the statute."

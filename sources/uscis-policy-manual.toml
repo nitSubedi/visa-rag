@@ -1,0 +1,13 @@
+slug = "uscis-policy-manual"
+title = "USCIS Policy Manual (all volumes)"
+tier = 3
+kind = "agency policy"
+jurisdiction = "US-federal"
+fetcher = "html"
+chunker = "uscis-pm"
+url = "https://www.uscis.gov/book/export/html/68600"
+refresh_days = 30
+note = """USCIS's own interpretation, not law — persuasive as to how USCIS adjudicates,
+but subordinate to statute and regulation. Critically, this is the ONLY tier carrying
+the Dhanasar three-prong NIW test and the Kazarian two-step EB-1A analysis, neither of
+which appears anywhere in 8 CFR. Also carries the entrepreneur/STEM guidance."""

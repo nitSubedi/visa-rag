@@ -1,0 +1,13 @@
+slug = "uscis-policy-updates"
+title = "USCIS policy alerts — NIW / entrepreneurs / STEM"
+tier = 4
+kind = "guidance"
+jurisdiction = "US-federal"
+fetcher = "pdf"
+chunker = "pdf"
+refresh_days = 90
+urls = [
+  "https://www.uscis.gov/sites/default/files/document/policy-manual-updates/20250115-Employment-BasedNationalInterestWaivers.pdf",
+  "https://www.uscis.gov/sites/default/files/document/policy-manual-updates/20220121-NationalInterestWaivers.pdf",
+]
+note = "Founder/STEM-specific NIW guidance: how USCIS weighs funding, traction, and endeavor framing for entrepreneurs."

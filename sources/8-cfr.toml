@@ -1,0 +1,10 @@
+slug = "8-cfr"
+title = "8 CFR — Aliens and Nationality"
+tier = 2
+kind = "regulation"
+jurisdiction = "US-federal"
+fetcher = "ecfr-xml"
+chunker = "ecfr"
+url = "https://www.ecfr.gov/api/versioner/v1/full/{date}/title-8.xml"
+refresh_days = 30
+note = "Binding regulation. Includes 214.2(f) (F-1/OPT), 214.2(o) (O-1), 204.5 (EB-1/2/3/5)."
