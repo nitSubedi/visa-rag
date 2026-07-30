@@ -6,7 +6,7 @@ import datetime as dt
 import json
 import re
 import urllib.request
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 from . import dates, profile
 from .config import settings, tier_label
@@ -27,8 +27,10 @@ ABSOLUTE RULES:
    outranks USCIS Policy Manual, which outranks guidance. When a Policy Manual passage
    supplies a test that the regulation does not, say so explicitly — it reflects how
    USCIS adjudicates, not binding law.
-5. If COMPUTED DEADLINES are provided, use those dates exactly. Do not do your own date
-   arithmetic and do not restate a date that contradicts them.
+5. COMPUTED DEADLINES are authoritative and already correct. Quote those dates exactly,
+   never recompute them, and address EVERY line of that block that bears on the
+   question — including any that show a limit already partly consumed or a window
+   already closed. Silently omitting one is a failure.
 6. Never predict whether a petition will be approved. You may map evidence to criteria
    and identify what is thin, but adjudication outcomes are not yours to forecast.
 7. Be concrete and brief. No preamble, no restating the question."""
@@ -40,30 +42,55 @@ CLOSER = (
 )
 
 
+def est_tokens(text: str) -> int:
+    return int(len(text.split()) * 1.33)
+
+
 def build_prompt(
     question: str,
     hits: list[Hit],
     prof: dict[str, object] | None = None,
 ) -> list[dict[str, str]]:
+    """Assemble the prompt, ordered and budgeted so nothing critical is truncated.
+
+    Two things learned the hard way:
+
+    * The prompt must fit. Twelve chunks of legal text ran ~8.3k tokens against an
+      8k window, so generation silently dropped whatever came first.
+    * Order matters. Profile and computed deadlines go LAST, immediately before the
+      question — those are the facts an answer must not contradict, and the tail of
+      a prompt is both un-truncated and the best attended.
+    """
     prof = prof if prof is not None else profile.load()
-    blocks = []
+
+    facts: list[str] = []
+    if p := profile.render(prof):
+        facts.append(p)
+    if d := dates.render(prof):
+        facts.append(d)
+    tail = "\n\n".join([*facts, f"QUESTION: {question}"])
+
+    budget = (
+        settings.num_ctx
+        - settings.answer_reserve_tokens
+        - est_tokens(SYSTEM)
+        - est_tokens(tail)
+    )
+
+    blocks: list[str] = []
+    used = 0
     for i, h in enumerate(hits, 1):
         r = h.row
-        blocks.append(
-            f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})\n{r.text}"
-        )
-    parts: list[str] = []
-    p = profile.render(prof)
-    if p:
-        parts.append(p)
-    d = dates.render(prof)
-    if d:
-        parts.append(d)
-    parts.append("SOURCES:\n\n" + "\n\n".join(blocks))
-    parts.append(f"QUESTION: {question}")
+        block = f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})\n{r.text}"
+        cost = est_tokens(block)
+        if used + cost > budget and blocks:
+            break
+        blocks.append(block)
+        used += cost
+
     return [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": "\n\n".join(parts)},
+        {"role": "user", "content": "SOURCES:\n\n" + "\n\n".join(blocks) + "\n\n" + tail},
     ]
 
 
@@ -74,7 +101,7 @@ def stream_chat(
         "model": model or settings.chat_model,
         "messages": messages,
         "stream": True,
-        "options": {"temperature": temperature, "num_ctx": 8192},
+        "options": {"temperature": temperature, "num_ctx": settings.num_ctx},
     }
     req = urllib.request.Request(
         f"{settings.ollama_host}/api/chat",
@@ -117,8 +144,21 @@ def needs_live_bulletin(question: str) -> bool:
     return any(t in q for t in PRIORITY_DATE_TERMS)
 
 
+# A bare lookup ("what is X") needs one retrieval. A described situation needs one per
+# legal issue, because the deciding provision is usually not the one named.
+SITUATIONAL_HINTS = ("i ", "my ", "me ", "i'm", "i've", "we ", "our ")
+
+
+def looks_situational(question: str) -> bool:
+    q = question.lower()
+    return len(q.split()) > 12 and any(h in f" {q} " for h in SITUATIONAL_HINTS)
+
+
 def answer(
-    question: str, index: Index, k: int | None = None
+    question: str,
+    index: Index,
+    k: int | None = None,
+    on_issue: Callable[[list[str]], None] = lambda _: None,
 ) -> tuple[list[Hit], bool, list[str]]:
     """Returns (hits, gate_passed, preamble_warnings)."""
     warnings = list(index.warnings)
@@ -128,6 +168,16 @@ def answer(
             "tool deliberately does not cache. Check travel.state.gov for the current "
             "month — any cached answer would risk being wrong."
         )
+
+    if settings.retrieval == "issues" and looks_situational(question):
+        issues = plan_issues(question)
+        if issues:
+            on_issue(issues)
+            merged = index.search_many([question, *issues], k=k)
+            # The gate still applies: decomposition must not become a way for an
+            # off-domain question to sneak past the relevance floor.
+            return merged, passes_gate(merged), warnings
+
     hits = index.search(question, k=k)
     return hits, passes_gate(hits), warnings
 
@@ -164,6 +214,81 @@ def verify_citations(text: str, hits: list[Hit]) -> list[str]:
                     f"cited '{title} {label} {sec}' but no retrieved source contains it"
                 )
     return problems
+
+
+ISO_DATE_RE = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
+
+
+def verify_dates(text: str, prof: dict[str, object] | None = None) -> list[str]:
+    """Catch the model re-deriving a deadline and drifting off by a day or two.
+
+    Observed: an answer correctly quoted the filing window opening 2027-02-13, then
+    concluded "the earliest filing date would be 2027-02-14". A deadline that is
+    almost right is the most dangerous output this tool can produce, so any date
+    close to — but not equal to — a computed boundary is reported.
+    """
+    windows = dates.compute(prof if prof is not None else profile.load())
+    if not windows:
+        return []
+    boundaries = {
+        d: w.name for w in windows for d in (w.opens, w.closes) if d is not None
+    }
+    if not boundaries:
+        return []
+
+    problems = []
+    for raw in set(ISO_DATE_RE.findall(text)):
+        try:
+            got = dt.date.fromisoformat(raw)
+        except ValueError:
+            continue
+        if got in boundaries:
+            continue
+        for boundary, name in boundaries.items():
+            delta = abs((got - boundary).days)
+            if 0 < delta <= 3:
+                problems.append(
+                    f"answer says {raw}, but the computed {name} boundary is "
+                    f"{boundary.isoformat()} ({delta}d off) — trust the computed date"
+                )
+                break
+    return problems
+
+
+def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[str]:
+    """Decompose a described situation into the legal issues it raises.
+
+    A single retrieval embeds the user's narrative, which surfaces passages similar to
+    what they *said* — not the provisions that actually decide the case. Issue-spotting
+    is the part a person cannot do for themselves: the rule that disqualifies you is
+    the one you did not know to ask about.
+    """
+    prof = prof if prof is not None else profile.load()
+    facts = profile.render(prof)
+    prompt = (
+        "You are triaging a U.S. immigration question for a legal research index.\n"
+        "List the distinct legal issues these facts raise — including issues the "
+        "person did NOT ask about but that bear on the outcome (eligibility limits, "
+        "accrued time, employer requirements, filing windows, status violations).\n"
+        "Output 3-6 lines. Each line is a short search query in legal terminology, "
+        "no numbering, no commentary.\n\n"
+        f"{facts}\n\nSITUATION: {question}"
+    )
+    try:
+        raw = "".join(
+            stream_chat(
+                [{"role": "user", "content": prompt}],
+                temperature=0.3,
+            )
+        )
+    except Exception:
+        return []
+    issues = []
+    for line in raw.splitlines():
+        cleaned = re.sub(r"^\s*[-*\d.)\s]+", "", line).strip()
+        if 8 < len(cleaned) < 140:
+            issues.append(cleaned)
+    return issues[:6]
 
 
 def sources_table(hits: list[Hit]) -> list[tuple[int, str, str, str]]:

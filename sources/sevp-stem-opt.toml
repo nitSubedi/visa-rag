@@ -1,0 +1,22 @@
+slug = "sevp-stem-opt"
+title = "SEVP / Study in the States — STEM OPT guidance"
+tier = 4
+kind = "guidance"
+jurisdiction = "US-federal"
+fetcher = "html"
+chunker = "text"
+refresh_days = 90
+urls = [
+  "https://studyinthestates.dhs.gov/2016/09/reminder-stem-opt-students-must-train-bona-fide-employers",
+  "https://studyinthestates.dhs.gov/stem-opt-hub/for-students/students-determining-stem-opt-extension-eligibility",
+  "https://studyinthestates.dhs.gov/stem-opt-hub/for-employers/employers-and-the-form-i-983",
+  "https://studyinthestates.dhs.gov/stem-opt-hub/for-employers/employers-stem-opt-reporting-requirements",
+  "https://studyinthestates.dhs.gov/stem-opt-hub/additional-resources/stem-opt-extension-overview",
+  "https://studyinthestates.dhs.gov/sites/default/files/External%20STEM%20OPT%20Webinar%20FAQ%20Document%20FINAL%20v%202.pdf",
+]
+note = """ICE/SEVP administers F-1 practical training, so the operative STEM OPT rules
+live here rather than in 8 CFR. Critically for founders: self-employment is barred (a
+student cannot sign their own Form I-983), but working at a start-up you founded IS
+permitted where a bona fide employer-employee relationship exists, the entity is
+E-Verify enrolled, and compensation is commensurate with similarly situated U.S.
+workers. That nuance appears nowhere in Title 8."""

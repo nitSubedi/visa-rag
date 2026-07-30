@@ -178,6 +178,47 @@ class Index:
                 break
         return kept
 
+    def search_many(self, queries: list[str], k: int | None = None) -> list[Hit]:
+        """Retrieve for several issues and merge, keeping each issue represented.
+
+        A plain union lets one broad issue dominate the budget, which reproduces the
+        failure decomposition exists to fix. So results are interleaved round-robin:
+        every issue contributes its best passage before any issue contributes a
+        second.
+        """
+        k = k or settings.top_k
+        # Each issue retrieves a full slate. Deduplication across issues is heavy —
+        # they overlap by design — so retrieving only k/n per issue starves the merge
+        # and yields fewer sources than a single pass.
+        ranked = [self.search(q, k=k) for q in queries]
+
+        merged: list[Hit] = []
+        seen: set[str] = set()
+        per_citation: Counter[str] = Counter()
+
+        def take(hit: Hit, citation_cap: int) -> bool:
+            key = f"{hit.row.citation}|{hit.row.text[:80]}"
+            if key in seen or per_citation[hit.row.citation] >= citation_cap:
+                return False
+            seen.add(key)
+            per_citation[hit.row.citation] += 1
+            merged.append(hit)
+            return True
+
+        # Round 1: interleave so every issue is represented before any repeats,
+        # capped per provision so one broad chapter cannot swallow the budget.
+        for rank in range(k):
+            for hits in ranked:
+                if rank < len(hits) and take(hits[rank], 4) and len(merged) >= k:
+                    return merged
+
+        # Round 2: top up without the diversity cap rather than return short.
+        for hits in ranked:
+            for hit in hits:
+                if take(hit, k) and len(merged) >= k:
+                    return merged
+        return merged
+
 
 def passes_gate(hits: list[Hit]) -> bool:
     """The citation gate: without at least one solidly-matching passage the tool must

@@ -145,8 +145,14 @@ def fetch(src: Source, progress: Callable[[str], None] = _noop_msg) -> dict[str,
                 u = url.replace("{date}", str(edition["latest_issue_date"]))
             progress(f"fetching {u}")
             data = _get(u)
-            ext = {"ecfr-xml": ".xml", "html": ".html", "pdf": ".pdf"}.get(
-                src.fetcher, ".txt"
+            # Sniff rather than trust the declared fetcher: a guidance source often
+            # mixes HTML pages with PDFs, and the chunker dispatches on suffix.
+            ext = (
+                ".pdf"
+                if data[:4] == b"%PDF"
+                else {"ecfr-xml": ".xml", "html": ".html", "pdf": ".pdf"}.get(
+                    src.fetcher, ".txt"
+                )
             )
             stem = Path(u.split("?")[0]).name or src.slug
             if not stem.endswith(ext):

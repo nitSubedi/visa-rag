@@ -312,8 +312,15 @@ def ask(
     _repl(idx, k)
 
 
+def _show_issues(issues: list[str]) -> None:
+    c.print("[dim]issues identified:[/dim]")
+    for i in issues:
+        c.print(f"  [dim]· {i}[/dim]")
+
+
 def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
-    hits, gated, warnings = ans.answer(q, idx, k)
+    with c.status("[dim]retrieving…[/dim]"):
+        hits, gated, warnings = ans.answer(q, idx, k, on_issue=_show_issues)
     for w in warnings:
         c.print(f"[yellow]⚠ {w}[/yellow]")
     if not gated:
@@ -335,12 +342,13 @@ def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
         c.print(f"\n[red]generation failed:[/red] {e}")
         return []
     c.print("\n")
-    problems = ans.verify_citations("".join(buf), hits)
+    text = "".join(buf)
+    problems = ans.verify_citations(text, hits) + ans.verify_dates(text)
     if problems:
         c.print(
             Panel(
                 "\n".join(f"· {p}" for p in problems),
-                title="[red]citation check failed[/red]",
+                title="[red]answer check failed[/red]",
                 subtitle="[red]verify these against the sources first[/red]",
                 border_style="red",
             )

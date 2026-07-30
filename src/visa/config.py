@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     chat_model: str = "qwen2.5:14b"
 
     top_k: int = 12
+    # 12 chunks of legal text is ~8.3k tokens; at the old 8192 the prompt overflowed
+    # and silently dropped whatever came first — which was the computed-deadline
+    # block. Anything set here must leave room for the sources plus the answer.
+    num_ctx: int = 16384
+    answer_reserve_tokens: int = 1400  # headroom kept free for the response
+    retrieval: str = "issues"  # issues | single
     # Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
     # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
     # Re-measure if `embed_model` changes; the floor is model-specific.
