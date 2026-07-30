@@ -82,6 +82,15 @@ text. Post-generation validation is not optional here.
 
 ---
 
+## Conventions
+
+`uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
+Pydantic models for payload schemas (`models.py`: `Chunk`, `Manifest`), `ruff` and
+`mypy --strict` both clean, `py.typed` shipped. Commits are short and conventional
+with no AI attribution.
+
+Gate before pushing: `ruff check src tests && mypy && pytest`
+
 ## Architecture
 
 ```

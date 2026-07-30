@@ -5,6 +5,7 @@ windows are computed in Python from the profile and handed to the model as facts
 explain — never calculated by it. Each carries the provision it derives from so the
 answer layer can cite it and the user can verify.
 """
+
 from __future__ import annotations
 
 import datetime as dt
@@ -42,52 +43,73 @@ def post_completion_opt(program_end: dt.date) -> list[Window]:
     program end date and no later than 60 days after it (and within 30 days of the
     DSO's recommendation in SEVIS)."""
     return [
-        Window("Post-completion OPT filing window",
-               program_end - 90 * DAY, program_end + 60 * DAY,
-               "8 CFR 214.2(f)(11)(i)(B)(2)",
-               "Must also be filed within 30 days of the DSO's SEVIS recommendation."),
-        Window("F-1 grace period after program end",
-               program_end + DAY, program_end + 60 * DAY,
-               "8 CFR 214.2(f)(5)(iv)",
-               "60 days to depart, change status, or transfer — only if status was maintained."),
+        Window(
+            "Post-completion OPT filing window",
+            program_end - 90 * DAY,
+            program_end + 60 * DAY,
+            "8 CFR 214.2(f)(11)(i)(B)(2)",
+            "Must also be filed within 30 days of the DSO's SEVIS recommendation.",
+        ),
+        Window(
+            "F-1 grace period after program end",
+            program_end + DAY,
+            program_end + 60 * DAY,
+            "8 CFR 214.2(f)(5)(iv)",
+            "60 days to depart, change status, or transfer — "
+            "only if status was maintained.",
+        ),
     ]
 
 
 def stem_extension(opt_end: dt.date) -> Window:
     """8 CFR 214.2(f)(11)(i)(C): the 24-month STEM extension may be filed up to 90
     days before the current post-completion OPT employment authorization expires."""
-    return Window("STEM OPT (24-mo) filing window",
-                  opt_end - 90 * DAY, opt_end,
-                  "8 CFR 214.2(f)(11)(i)(C)",
-                  "Requires an E-Verify employer and a Form I-983 training plan.")
+    return Window(
+        "STEM OPT (24-mo) filing window",
+        opt_end - 90 * DAY,
+        opt_end,
+        "8 CFR 214.2(f)(11)(i)(C)",
+        "Requires an E-Verify employer and a Form I-983 training plan.",
+    )
 
 
 def opt_grace(opt_end: dt.date) -> Window:
-    return Window("Grace period after OPT ends", opt_end + DAY, opt_end + 60 * DAY,
-                  "8 CFR 214.2(f)(5)(iv)")
+    return Window(
+        "Grace period after OPT ends",
+        opt_end + DAY,
+        opt_end + 60 * DAY,
+        "8 CFR 214.2(f)(5)(iv)",
+    )
 
 
 def unemployment_budget(opt_start: dt.date, stem: bool = False) -> Window:
     """Aggregate unemployment caps: 90 days on post-completion OPT, plus 60 more
     during a STEM extension (150 total)."""
     cap = 150 if stem else 90
-    return Window(f"Aggregate unemployment allowance ({cap} days)",
-                  opt_start, None, "8 CFR 214.2(f)(10)(ii)(E)",
-                  "Exceeding the cap is a status violation, counted cumulatively.")
+    return Window(
+        f"Aggregate unemployment allowance ({cap} days)",
+        opt_start,
+        None,
+        "8 CFR 214.2(f)(10)(ii)(E)",
+        "Exceeding the cap is a status violation, counted cumulatively.",
+    )
 
 
 def cap_gap(fiscal_year: int) -> Window:
     """8 CFR 214.2(f)(5)(vi): F-1 status and any employment authorization are extended
     to Sep 30 when a timely H-1B cap petition requesting a change of status is filed
     while the student is in valid F-1 status or the 60-day grace period."""
-    return Window(f"H-1B cap-gap extension (FY{fiscal_year})",
-                  dt.date(fiscal_year - 1, 4, 1), dt.date(fiscal_year - 1, 9, 30),
-                  "8 CFR 214.2(f)(5)(vi)",
-                  "Requires a timely-filed, pending or approved cap-subject H-1B "
-                  "requesting change of status with an Oct 1 start.")
+    return Window(
+        f"H-1B cap-gap extension (FY{fiscal_year})",
+        dt.date(fiscal_year - 1, 4, 1),
+        dt.date(fiscal_year - 1, 9, 30),
+        "8 CFR 214.2(f)(5)(vi)",
+        "Requires a timely-filed, pending or approved cap-subject H-1B "
+        "requesting change of status with an Oct 1 start.",
+    )
 
 
-def compute(profile: dict, today: dt.date | None = None) -> list[Window]:
+def compute(profile: dict[str, object], today: dt.date | None = None) -> list[Window]:
     """Everything derivable from what the profile actually contains."""
     t = today or dt.date.today()
     out: list[Window] = []
@@ -119,7 +141,7 @@ def compute(profile: dict, today: dt.date | None = None) -> list[Window]:
     return out
 
 
-def render(profile: dict, today: dt.date | None = None) -> str:
+def render(profile: dict[str, object], today: dt.date | None = None) -> str:
     ws = compute(profile, today)
     if not ws:
         return ""

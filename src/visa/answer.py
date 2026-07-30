@@ -1,13 +1,15 @@
 """Prompt assembly, the citation gate, and streaming generation."""
+
 from __future__ import annotations
 
 import datetime as dt
 import json
 import re
 import urllib.request
-from typing import Iterator
+from collections.abc import Iterator
 
-from . import config, dates, profile
+from . import dates, profile
+from .config import settings, tier_label
 from .search import Hit, Index, passes_gate
 
 SYSTEM = """You are a research assistant for U.S. immigration questions. You are not a \
@@ -31,21 +33,26 @@ ABSOLUTE RULES:
    and identify what is thin, but adjudication outcomes are not yours to forecast.
 7. Be concrete and brief. No preamble, no restating the question."""
 
-CLOSER = ("This is research, not legal advice. For anything that affects your status, "
-          "confirm with your DSO (free, and they control your SEVIS record) or an "
-          "immigration attorney.")
+CLOSER = (
+    "This is research, not legal advice. For anything that affects your status, "
+    "confirm with your DSO (free, and they control your SEVIS record) or an "
+    "immigration attorney."
+)
 
 
-def build_prompt(question: str, hits: list[Hit], prof: dict | None = None) -> list[dict]:
+def build_prompt(
+    question: str,
+    hits: list[Hit],
+    prof: dict[str, object] | None = None,
+) -> list[dict[str, str]]:
     prof = prof if prof is not None else profile.load()
     blocks = []
     for i, h in enumerate(hits, 1):
         r = h.row
         blocks.append(
-            f"[{i}] {r['citation']}  ({config.tier_label(int(r.get('tier') or 9))}"
-            f" · {r.get('source_title','')})\n{r['text']}"
+            f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})\n{r.text}"
         )
-    parts = []
+    parts: list[str] = []
     p = profile.render(prof)
     if p:
         parts.append(p)
@@ -60,16 +67,17 @@ def build_prompt(question: str, hits: list[Hit], prof: dict | None = None) -> li
     ]
 
 
-def stream_chat(messages: list[dict], model: str | None = None,
-                temperature: float = 0.15) -> Iterator[str]:
-    payload = {
-        "model": model or config.CHAT_MODEL,
+def stream_chat(
+    messages: list[dict[str, str]], model: str | None = None, temperature: float = 0.15
+) -> Iterator[str]:
+    payload: dict[str, object] = {
+        "model": model or settings.chat_model,
         "messages": messages,
         "stream": True,
         "options": {"temperature": temperature, "num_ctx": 8192},
     }
     req = urllib.request.Request(
-        f"{config.OLLAMA}/api/chat",
+        f"{settings.ollama_host}/api/chat",
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -93,8 +101,15 @@ def stream_chat(messages: list[dict], model: str | None = None,
 
 # Priority dates move monthly; a stale snapshot answering them confidently is the one
 # genuinely dangerous failure mode of an offline tool.
-PRIORITY_DATE_TERMS = ("priority date", "visa bulletin", "final action date",
-                       "retrogress", "current for", "dates for filing", "backlog")
+PRIORITY_DATE_TERMS = (
+    "priority date",
+    "visa bulletin",
+    "final action date",
+    "retrogress",
+    "current for",
+    "dates for filing",
+    "backlog",
+)
 
 
 def needs_live_bulletin(question: str) -> bool:
@@ -102,7 +117,9 @@ def needs_live_bulletin(question: str) -> bool:
     return any(t in q for t in PRIORITY_DATE_TERMS)
 
 
-def answer(question: str, index: Index, k: int | None = None):
+def answer(
+    question: str, index: Index, k: int | None = None
+) -> tuple[list[Hit], bool, list[str]]:
     """Returns (hits, gate_passed, preamble_warnings)."""
     warnings = list(index.warnings)
     if needs_live_bulletin(question):
@@ -128,7 +145,7 @@ def verify_citations(text: str, hits: list[Hit]) -> list[str]:
     vague answer, because it is checkable-looking and therefore trusted.
     """
     problems = []
-    corpus = " ".join(h.row["text"] + " " + h.row["citation"] for h in hits).lower()
+    corpus = " ".join(h.row.text + " " + h.row.citation for h in hits).lower()
 
     for n in {int(m) for m in BRACKET_RE.findall(text)}:
         if not 1 <= n <= len(hits):
@@ -139,11 +156,13 @@ def verify_citations(text: str, hits: list[Hit]) -> list[str]:
             if title not in valid_titles:
                 problems.append(
                     f"cited '{title} {label} {sec}' — this corpus only contains title "
-                    f"{'/'.join(sorted(valid_titles))}, so that citation is wrong")
+                    f"{'/'.join(sorted(valid_titles))}, so that citation is wrong"
+                )
                 continue
             if sec.split("(")[0].lower() not in corpus:
                 problems.append(
-                    f"cited '{title} {label} {sec}' but no retrieved source contains it")
+                    f"cited '{title} {label} {sec}' but no retrieved source contains it"
+                )
     return problems
 
 
@@ -151,8 +170,7 @@ def sources_table(hits: list[Hit]) -> list[tuple[int, str, str, str]]:
     out = []
     for i, h in enumerate(hits, 1):
         r = h.row
-        out.append((i, r["citation"], config.tier_label(int(r.get("tier") or 9)),
-                    f"{h.cosine:.2f}"))
+        out.append((i, r.citation, tier_label(r.tier), f"{h.cosine:.2f}"))
     return out
 
 

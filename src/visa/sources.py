@@ -3,13 +3,14 @@
 Adding a corpus = drop a TOML file in sources/. A new parser is only needed when
 the upstream format is genuinely novel.
 """
+
 from __future__ import annotations
 
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from . import config
+from .config import settings
 
 
 @dataclass
@@ -29,7 +30,7 @@ class Source:
 
     @property
     def dir(self) -> Path:
-        return (config.ME / "shard") if self.private else (config.CORPUS / self.slug)
+        return (settings.me / "shard") if self.private else (settings.corpus / self.slug)
 
     @property
     def all_urls(self) -> list[str]:
@@ -37,7 +38,7 @@ class Source:
 
 
 def load_defs(path: Path | None = None) -> list[Source]:
-    d = path or config.SOURCE_DEFS
+    d = path or settings.source_defs
     out = []
     for f in sorted(d.glob("*.toml")):
         raw = tomllib.loads(f.read_text())

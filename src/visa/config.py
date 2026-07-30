@@ -1,31 +1,14 @@
-"""Paths and settings. Everything personal lives under HOME_DIR/me and never leaves."""
+"""Typed settings. Twelve-Factor config via environment, with `VISA_` prefix."""
+
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
-HOME = Path(os.environ.get("VISA_HOME", Path.home() / ".visa"))
-CORPUS = HOME / "corpus"          # public law — shareable
-ME = HOME / "me"                  # profile, docs, memory — never shared
-PROFILE = ME / "profile.toml"
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO = Path(__file__).resolve().parents[2]
-SOURCE_DEFS = REPO / "sources"
-
-OLLAMA = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-EMBED_MODEL = os.environ.get("VISA_EMBED_MODEL", "nomic-embed-text")
-CHAT_MODEL = os.environ.get("VISA_CHAT_MODEL", "qwen2.5:14b")
-
-# Retrieval
-TOP_K = 12                 # chunks handed to the model
-# Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
-# genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
-MIN_SCORE = 0.62           # below this, the citation gate refuses to answer
-CHUNK_TOKENS = 700
-CHUNK_OVERLAP = 80
-
-# Tier -> (label, weight). Lower tier number = higher legal precedence.
-TIERS = {
+# Tier -> (label, retrieval weight). Lower number = higher legal precedence.
+TIERS: dict[int, tuple[str, float]] = {
     1: ("statute", 1.00),
     2: ("regulation", 0.97),
     3: ("policy", 0.92),
@@ -34,18 +17,57 @@ TIERS = {
 }
 
 
-def tier_label(t: int) -> str:
-    return TIERS.get(t, ("unknown", 0.8))[0]
+class Settings(BaseSettings):
+    """Runtime configuration. Override any field with `VISA_<FIELD>` or a `.env`."""
+
+    model_config = SettingsConfigDict(env_prefix="VISA_", env_file=".env", extra="ignore")
+
+    home: Path = Field(default_factory=lambda: Path.home() / ".visa")
+    ollama_host: str = "http://localhost:11434"
+    embed_model: str = "nomic-embed-text"
+    chat_model: str = "qwen2.5:14b"
+
+    top_k: int = 12
+    # Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
+    # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
+    # Re-measure if `embed_model` changes; the floor is model-specific.
+    min_score: float = 0.62
+    chunk_tokens: int = 700
+    chunk_overlap: int = 80
+
+    @property
+    def corpus(self) -> Path:
+        """Public law. Shareable."""
+        return self.home / "corpus"
+
+    @property
+    def me(self) -> Path:
+        """Profile, documents, memory. Never shared."""
+        return self.home / "me"
+
+    @property
+    def profile_path(self) -> Path:
+        return self.me / "profile.toml"
+
+    @property
+    def source_defs(self) -> Path:
+        return Path(__file__).resolve().parents[2] / "sources"
+
+    def ensure_dirs(self) -> None:
+        for d in (self.corpus, self.me, self.me / "docs", self.me / "memory"):
+            d.mkdir(parents=True, exist_ok=True)
+        # Personal data must never be committed, even if a repo is created here.
+        gitignore = self.me / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text("*\n")
 
 
-def tier_weight(t: int) -> float:
-    return TIERS.get(t, ("unknown", 0.8))[1]
+settings = Settings()
 
 
-def ensure_dirs() -> None:
-    for d in (CORPUS, ME, ME / "docs", ME / "memory"):
-        d.mkdir(parents=True, exist_ok=True)
-    # Personal data must never be committed, even if the user inits a repo here.
-    gi = ME / ".gitignore"
-    if not gi.exists():
-        gi.write_text("*\n")
+def tier_label(tier: int) -> str:
+    return TIERS.get(tier, ("unknown", 0.8))[0]
+
+
+def tier_weight(tier: int) -> float:
+    return TIERS.get(tier, ("unknown", 0.8))[1]

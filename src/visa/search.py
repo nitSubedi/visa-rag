@@ -5,6 +5,7 @@ Pure embeddings retrieve poorly on exact citations ("214.2(f)(10)") and terms of
 for. BM25 covers that; vectors cover paraphrase. Reciprocal-rank fusion combines them
 without needing calibrated scores.
 """
+
 from __future__ import annotations
 
 import math
@@ -14,15 +15,48 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import config
+from .config import settings, tier_weight
 from .embed import embed_query
+from .models import Chunk
 from .store import Shard, load_shards
 
 # Keeps "214.2", "204.5(h)(3)" and "(f)" intact — the tokens that matter most here.
 TOKEN = re.compile(r"[A-Za-z]+|\d+(?:\.\d+)*|\([a-z0-9]{1,4}\)")
-STOP = {"the", "a", "an", "of", "to", "in", "for", "and", "or", "is", "are", "be",
-        "as", "by", "on", "that", "this", "with", "it", "at", "from", "may", "can",
-        "i", "my", "me", "do", "does", "if", "what", "how", "when", "which"}
+STOP = {
+    "the",
+    "a",
+    "an",
+    "of",
+    "to",
+    "in",
+    "for",
+    "and",
+    "or",
+    "is",
+    "are",
+    "be",
+    "as",
+    "by",
+    "on",
+    "that",
+    "this",
+    "with",
+    "it",
+    "at",
+    "from",
+    "may",
+    "can",
+    "i",
+    "my",
+    "me",
+    "do",
+    "does",
+    "if",
+    "what",
+    "how",
+    "when",
+    "which",
+}
 
 
 def tokenize(s: str) -> list[str]:
@@ -31,22 +65,22 @@ def tokenize(s: str) -> list[str]:
 
 @dataclass
 class Hit:
-    row: dict
+    row: Chunk
     score: float
     cosine: float
     shard: str
 
     @property
     def tier(self) -> int:
-        return int(self.row.get("tier") or 9)
+        return self.row.tier
 
 
 class Index:
     """All shards concatenated. Adding a shard costs nothing but a reload."""
 
-    def __init__(self, shards: list[Shard]):
+    def __init__(self, shards: list[Shard]) -> None:
         self.shards = shards
-        self.rows: list[dict] = []
+        self.rows: list[Chunk] = []
         self.warnings: list[str] = []
         vecs = []
         for s in shards:
@@ -56,21 +90,20 @@ class Index:
                 continue
             self.rows.extend(s.rows)
             vecs.append(s.vectors)
-        self.vectors = (np.vstack(vecs) if vecs
-                        else np.zeros((0, 768), dtype=np.float32))
+        self.vectors = np.vstack(vecs) if vecs else np.zeros((0, 768), dtype=np.float32)
         self._build_bm25()
 
     @classmethod
-    def load(cls, include_private: bool = True) -> "Index":
+    def load(cls, include_private: bool = True) -> Index:
         return cls(load_shards(include_private=include_private))
 
     def _build_bm25(self) -> None:
-        self.df: Counter = Counter()
-        self.tf: list[Counter] = []
+        self.df: Counter[str] = Counter()
+        self.tf: list[Counter[str]] = []
         self.lens: list[int] = []
         self.postings: dict[str, list[int]] = defaultdict(list)
         for i, r in enumerate(self.rows):
-            toks = tokenize(r["text"])
+            toks = tokenize(r.text)
             c = Counter(toks)
             self.tf.append(c)
             self.lens.append(max(len(toks), 1))
@@ -92,18 +125,23 @@ class Index:
                 scores[i] += idf * (f * (k1 + 1)) / denom
         return scores
 
-    def search(self, query: str, k: int = None, shards: list[str] | None = None,
-               rrf_k: int = 60) -> list[Hit]:
-        k = k or config.TOP_K
+    def search(
+        self,
+        query: str,
+        k: int | None = None,
+        shards: list[str] | None = None,
+        rrf_k: int = 60,
+    ) -> list[Hit]:
+        k = k or settings.top_k
         if not self.rows:
             return []
 
         qv = embed_query(query)
-        cos = self.vectors @ qv                       # exact, ~3ms at this scale
+        cos = self.vectors @ qv  # exact, ~3ms at this scale
 
         dense_rank = np.argsort(-cos)[: max(k * 8, 80)]
         lex = self._bm25(query)
-        lex_rank = sorted(lex, key=lex.get, reverse=True)[: max(k * 8, 80)]
+        lex_rank = sorted(lex, key=lambda i: lex[i], reverse=True)[: max(k * 8, 80)]
 
         fused: dict[int, float] = defaultdict(float)
         for r, i in enumerate(dense_rank):
@@ -114,18 +152,24 @@ class Index:
         hits = []
         for i, s in fused.items():
             row = self.rows[i]
-            if shards and row.get("shard") not in shards:
+            if shards and row.shard not in shards:
                 continue
-            hits.append(Hit(row=row, score=s * config.tier_weight(int(row.get("tier") or 9)),
-                            cosine=float(cos[i]), shard=row.get("shard", "")))
+            hits.append(
+                Hit(
+                    row=row,
+                    score=s * tier_weight(row.tier),
+                    cosine=float(cos[i]),
+                    shard=row.shard,
+                )
+            )
         hits.sort(key=lambda h: h.score, reverse=True)
 
         # Keep at most 3 chunks per citation so one sprawling section cannot crowd out
         # the rest of the evidence.
-        seen: Counter = Counter()
+        seen: Counter[str] = Counter()
         kept = []
         for h in hits:
-            c = h.row.get("citation", "")
+            c = h.row.citation
             if seen[c] >= 3:
                 continue
             seen[c] += 1
@@ -138,4 +182,4 @@ class Index:
 def passes_gate(hits: list[Hit]) -> bool:
     """The citation gate: without at least one solidly-matching passage the tool must
     decline rather than answer from model memory."""
-    return bool(hits) and max(h.cosine for h in hits) >= config.MIN_SCORE
+    return bool(hits) and max(h.cosine for h in hits) >= settings.min_score

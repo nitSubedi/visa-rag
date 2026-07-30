@@ -5,13 +5,17 @@ makes legal retrieval useful: knowing which provision a passage came from. Every
 here carries its own citation, so an answer can point at "8 CFR 214.2(f)(10)" rather
 than "somewhere in the regulations".
 """
+
 from __future__ import annotations
 
 import re
 import xml.etree.ElementTree as ET
+from collections.abc import Callable
 from pathlib import Path
 
-from . import config
+from .config import settings
+from .models import Chunk
+from .sources import Source
 
 WS = re.compile(r"\s+")
 TAG = re.compile(r"<[^>]+>")
@@ -30,12 +34,16 @@ def ntokens(s: str) -> int:
     return int(len(s.split()) * 1.33)
 
 
-def _pack(paras: list[str], budget: int = None, overlap: int = None) -> list[str]:
+def _pack(
+    paras: list[str], budget: int | None = None, overlap: int | None = None
+) -> list[str]:
     """Group paragraphs into token-budgeted pieces, never splitting mid-paragraph
     unless a single paragraph exceeds the budget."""
-    budget = budget or config.CHUNK_TOKENS
-    overlap = overlap or config.CHUNK_OVERLAP
-    out, cur, n = [], [], 0
+    budget = budget or settings.chunk_tokens
+    overlap = overlap or settings.chunk_overlap
+    out: list[str] = []
+    cur: list[str] = []
+    n = 0
     for p in paras:
         pt = ntokens(p)
         if pt > budget * 1.6:  # a genuinely huge paragraph — hard split on sentences
@@ -44,7 +52,8 @@ def _pack(paras: list[str], budget: int = None, overlap: int = None) -> list[str
             continue
         if n + pt > budget and cur:
             out.append(" ".join(cur))
-            tail, tn = [], 0
+            tail: list[str] = []
+            tn = 0
             for q in reversed(cur):  # carry a little context forward
                 tn += ntokens(q)
                 tail.insert(0, q)
@@ -60,7 +69,9 @@ def _pack(paras: list[str], budget: int = None, overlap: int = None) -> list[str
 
 def _split_sentences(text: str, budget: int) -> list[str]:
     sents = re.split(r"(?<=[.;:])\s+(?=[A-Z(])", text)
-    out, cur, n = [], [], 0
+    out: list[str] = []
+    cur: list[str] = []
+    n = 0
     for s in sents:
         st = ntokens(s)
         if n + st > budget and cur:
@@ -73,16 +84,24 @@ def _split_sentences(text: str, budget: int) -> list[str]:
     return out
 
 
-def _mk(text, citation, title, src, path="", **kw) -> dict:
-    return {
-        "text": text, "citation": citation, "title": title,
-        "shard": src.slug, "tier": src.tier, "kind": src.kind,
-        "source_title": src.title, "path": path,
-        "url": kw.get("url", src.all_urls[0] if src.all_urls else ""),
-    }
+def _mk(
+    text: str, citation: str, title: str, src: Source, path: str = "", url: str = ""
+) -> Chunk:
+    return Chunk(
+        text=text,
+        citation=citation,
+        title=title,
+        shard=src.slug,
+        tier=src.tier,
+        kind=src.kind,
+        source_title=src.title,
+        path=path,
+        url=url or (src.all_urls[0] if src.all_urls else ""),
+    )
 
 
 # ---------------------------------------------------------------- eCFR (8 CFR)
+
 
 def _norm_words(s: str, n: int) -> list[str]:
     return [w for w in re.sub(r"[^a-z0-9 ]", " ", s.lower()).split() if w][:n]
@@ -106,14 +125,17 @@ def _next_in_sequence(cur: str, cand: str) -> bool:
     if not cur:
         return cand == "a"
     if len(cur) != len(cand):
-        return len(cand) == len(cur) + 1 and cur == "z" * len(cur) \
+        return (
+            len(cand) == len(cur) + 1
+            and cur == "z" * len(cur)
             and cand == "a" * len(cand)
-    if len(set(cur)) == 1 and len(set(cand)) == 1:      # (aa) -> (bb)
+        )
+    if len(set(cur)) == 1 and len(set(cand)) == 1:  # (aa) -> (bb)
         return ord(cand[0]) - ord(cur[0]) == 1
     return False
 
 
-def _toc_letters(el) -> list[tuple[str, str]]:
+def _toc_letters(el: ET.Element) -> list[tuple[str, str]]:
     """Long CFR sections open with their own table of contents listing the real
     top-level paragraphs. That is authoritative — far better than guessing, since
     sub-paragraphs use roman numerals that are indistinguishable from letters.
@@ -121,7 +143,7 @@ def _toc_letters(el) -> list[tuple[str, str]]:
     Returns [("f", "Students in colleges, universities, ..."), ...].
     """
     for tab in el.iter("TABLE"):
-        pairs = []
+        pairs: list[tuple[str, str]] = []
         for r in tab.iter("TR"):
             txt = clean(" ".join("".join(td.itertext()) for td in r.iter("TD")))
             m = re.match(r"^\(([a-z]{1,2})\)\s+(.+)$", txt)
@@ -132,10 +154,10 @@ def _toc_letters(el) -> list[tuple[str, str]]:
     return []
 
 
-def chunk_ecfr(paths: list[Path], src) -> list[dict]:
+def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
     """One logical unit per CFR section; oversized sections split on top-level
     paragraph letters so (f) Students and (o) Extraordinary ability stay distinct."""
-    out = []
+    out: list[Chunk] = []
     for p in paths:
         if p.suffix.lower() != ".xml":
             continue
@@ -153,8 +175,10 @@ def chunk_ecfr(paths: list[Path], src) -> list[dict]:
             sec = el.get("N", "").strip()
             head = ""
             toc = _toc_letters(el)
-            expect = 0                      # pointer into the TOC sequence
-            paras, cur_letter, group = [], "", []
+            expect = 0  # pointer into the TOC sequence
+            paras: list[tuple[str, list[str]]] = []
+            cur_letter = ""
+            group: list[str] = []
             for child in el.iter():
                 if child.tag == "HEAD" and not head:
                     head = clean("".join(child.itertext()))
@@ -170,9 +194,11 @@ def chunk_ecfr(paths: list[Path], src) -> list[dict]:
                             # "(i)" sub-paragraphs, and the TOC's next expected letter
                             # is also "i". So require the body text to actually open
                             # with the heading the TOC gives for that paragraph.
-                            ok = (expect < len(toc)
-                                  and cand == toc[expect][0]
-                                  and _opens_with(t[m.end():], toc[expect][1]))
+                            ok = (
+                                expect < len(toc)
+                                and cand == toc[expect][0]
+                                and _opens_with(t[m.end() :], toc[expect][1])
+                            )
                             if ok:
                                 expect += 1
                         else:
@@ -196,12 +222,16 @@ def chunk_ecfr(paths: list[Path], src) -> list[dict]:
                 sub = toc_head.get(letter, "")
                 label = f"{heading} — {sub}" if sub else heading
                 for piece in _pack(ps):
-                    out.append(_mk(
-                        f"{cite} — {label}\n{piece}",
-                        cite, label, src,
-                        path=f"Title {title_no} > Part {part} > § {sec}"
-                             + (f"({letter})" if letter else ""),
-                    ))
+                    out.append(
+                        _mk(
+                            f"{cite} — {label}\n{piece}",
+                            cite,
+                            label,
+                            src,
+                            path=f"Title {title_no} > Part {part} > § {sec}"
+                            + (f"({letter})" if letter else ""),
+                        )
+                    )
     return out
 
 
@@ -210,15 +240,15 @@ def chunk_ecfr(paths: list[Path], src) -> list[dict]:
 H1 = re.compile(r"<h1[^>]*>(.*?)</h1>", re.S | re.I)
 
 
-def chunk_uscis_pm(paths: list[Path], src) -> list[dict]:
+def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
     """The export is one flat HTML document; hierarchy is carried by sequential
     <h1> headings (Volume N / Part X / Chapter N)."""
-    out = []
+    out: list[Chunk] = []
     for p in paths:
         html = p.read_text(encoding="utf-8", errors="ignore")
         marks = [(m.start(), m.end(), strip_html(m.group(1))) for m in H1.finditer(html)]
         vol = part = chap = ""
-        for i, (s, e, head) in enumerate(marks):
+        for i, (_start, e, head) in enumerate(marks):
             nxt = marks[i + 1][0] if i + 1 < len(marks) else len(html)
             body = strip_html(html[e:nxt])
             if re.match(r"^Volume\s", head):
@@ -245,15 +275,23 @@ def chunk_uscis_pm(paths: list[Path], src) -> list[dict]:
                 cite += f", Ch {ch.group(1).rstrip('-')}"
             paras = [x for x in re.split(r"(?<=[.])\s+(?=[A-Z0-9])", body) if x.strip()]
             for piece in _pack(paras):
-                out.append(_mk(f"{cite} — {chap}\n{piece}", cite, chap, src,
-                               path=" > ".join(x for x in (vol, part, chap) if x)))
+                out.append(
+                    _mk(
+                        f"{cite} — {chap}\n{piece}",
+                        cite,
+                        chap,
+                        src,
+                        path=" > ".join(x for x in (vol, part, chap) if x),
+                    )
+                )
     return out
 
 
 # ------------------------------------------------------------ US Code (8 U.S.C.)
 
-def chunk_uscode(paths: list[Path], src) -> list[dict]:
-    out = []
+
+def chunk_uscode(paths: list[Path], src: Source) -> list[Chunk]:
+    out: list[Chunk] = []
     for p in paths:
         if p.suffix.lower() != ".xml":
             continue
@@ -270,16 +308,25 @@ def chunk_uscode(paths: list[Path], src) -> list[dict]:
             cite = f"8 U.S.C. {num_s}".strip()
             paras = [x for x in re.split(r"(?<=[.;])\s+(?=\()", body) if x.strip()]
             for piece in _pack(paras or [body]):
-                out.append(_mk(f"{cite} — {head_s}\n{piece}", cite, head_s, src,
-                               path=f"8 U.S.C. {num_s}"))
+                out.append(
+                    _mk(
+                        f"{cite} — {head_s}\n{piece}",
+                        cite,
+                        head_s,
+                        src,
+                        path=f"8 U.S.C. {num_s}",
+                    )
+                )
     return out
 
 
 # ------------------------------------------------------------------------- PDF
 
-def chunk_pdf(paths: list[Path], src) -> list[dict]:
+
+def chunk_pdf(paths: list[Path], src: Source) -> list[Chunk]:
     from pypdf import PdfReader
-    out = []
+
+    out: list[Chunk] = []
     for p in paths:
         if p.suffix.lower() != ".pdf":
             continue
@@ -287,7 +334,7 @@ def chunk_pdf(paths: list[Path], src) -> list[dict]:
             rd = PdfReader(str(p))
         except Exception:
             continue
-        pages = []
+        pages: list[tuple[int, str]] = []
         for i, pg in enumerate(rd.pages, 1):
             try:
                 pages.append((i, clean(pg.extract_text() or "")))
@@ -304,8 +351,9 @@ def chunk_pdf(paths: list[Path], src) -> list[dict]:
 
 # --------------------------------------------------------------- plain / local
 
-def chunk_text(paths: list[Path], src) -> list[dict]:
-    out = []
+
+def chunk_text(paths: list[Path], src: Source) -> list[Chunk]:
+    out: list[Chunk] = []
     for p in paths:
         if p.suffix.lower() in (".pdf",):
             out += chunk_pdf([p], src)
@@ -324,7 +372,7 @@ def chunk_text(paths: list[Path], src) -> list[dict]:
     return out
 
 
-CHUNKERS = {
+CHUNKERS: dict[str, Callable[[list[Path], Source], list[Chunk]]] = {
     "ecfr": chunk_ecfr,
     "uscis-pm": chunk_uscis_pm,
     "uscode": chunk_uscode,
@@ -333,11 +381,11 @@ CHUNKERS = {
 }
 
 
-def chunk_source(src) -> list[dict]:
+def chunk_source(src: Source) -> list[Chunk]:
     raw = src.dir / "raw"
     paths = sorted(raw.glob("*")) if raw.exists() else []
     fn = CHUNKERS.get(src.chunker, chunk_text)
     rows = fn(paths, src)
     for i, r in enumerate(rows):
-        r["id"] = f"{src.slug}:{i}"
+        r.id = f"{src.slug}:{i}"
     return rows
