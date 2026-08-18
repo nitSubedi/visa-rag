@@ -343,6 +343,19 @@ def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
         return []
     c.print("\n")
     text = "".join(buf)
+    # Show the computed deadlines rather than trusting the model to repeat them.
+    # verify_dates catches a date the model got *wrong*; nothing caught a date it
+    # simply omitted, and omission is the common failure — three of the eval's date
+    # checks fail that way. These are Python's arithmetic, so print them directly.
+    if deadlines := dates.render(profile.load()):
+        c.print(
+            Panel(
+                deadlines,
+                title="[cyan]computed deadlines[/cyan]",
+                subtitle="[dim]calculated from your profile, not model output[/dim]",
+                border_style="cyan",
+            )
+        )
     problems = ans.verify_citations(text, hits) + ans.verify_dates(text)
     if problems:
         c.print(

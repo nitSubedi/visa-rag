@@ -25,7 +25,15 @@ class Settings(BaseSettings):
     home: Path = Field(default_factory=lambda: Path.home() / ".visa")
     ollama_host: str = "http://localhost:11434"
     embed_model: str = "nomic-embed-text"
-    chat_model: str = "qwen2.5:14b"
+    # 7b, not 14b. Measured on this corpus: 13/16 vs 12/16, 185s vs 361s, and 5.5 GB
+    # vs 11 GB. On an 18 GB machine the 14b forces ~4.6 GB of the user's running
+    # applications out to swap, which is what made the tool unusable alongside other
+    # work. The smaller model is better here on every axis measured.
+    chat_model: str = "qwen2.5:7b"
+    # Ollama holds a model resident for 5 minutes after each request by default, so
+    # 5.5 GB stayed pinned long after an answer printed. Release it sooner; reloading
+    # from page cache costs a couple of seconds.
+    keep_alive: str = "90s"
 
     top_k: int = 12
     # 12 chunks of legal text is ~8.3k tokens; at the old 8192 the prompt overflowed
