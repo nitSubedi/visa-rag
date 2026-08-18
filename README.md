@@ -33,7 +33,7 @@ Needs [Ollama](https://ollama.com) and Python 3.11+.
 
 ```bash
 ollama pull nomic-embed-text     # 274 MB — embeddings
-ollama pull qwen2.5:14b          # 9 GB — reasoning (qwen2.5:7b if RAM is tight)
+ollama pull qwen2.5:7b           # 4.7 GB — reasoning
 
 pip install -e .
 visa init                        # downloads the corpus, builds the index (~6 min)
@@ -83,6 +83,37 @@ retrieve one empty sentence and let the model improvise the rest.
 - **Precedence.** Answers say when a rule comes from USCIS policy rather than law.
 - **Freshness.** Every shard is date-stamped. Priority-date questions are refused
   outright — the Visa Bulletin moves monthly and is deliberately not cached.
+
+## Reasoning about a situation
+
+Describe your circumstances and it decomposes them into legal issues before retrieving —
+one search per issue rather than one for the whole story. This matters because the
+provision that decides your case is usually the one you didn't know to ask about.
+
+```
+ask> I was unemployed for 60 days of my OPT and now work 20 hrs/week at my own startup
+
+  issues identified:
+   · unemployment accrual during post-completion OPT
+   · employer eligibility requirements for STEM extension
+   · bona fide employer-employee relationship where student controls the entity
+```
+
+Fill in `visa profile` first — filing windows and grace periods are computed in Python
+from your dates and handed to the model as fixed facts, and a date in the answer that
+drifts from a computed boundary is flagged rather than shown.
+
+**Verify before relying on it.** Scored on `evals/`, the current setup answers 81% of
+checks correctly — good for a research assistant, not good enough to act on unverified.
+Those 16 checks cover lookup and dates only; nothing scores reasoning about your own
+documents against a legal standard, so treat that use especially sceptically.
+Use `/sources N` to read the passage behind any claim.
+
+```bash
+python evals/run.py --repeat 3              # score the current setup
+python evals/run.py --model qwen2.5:14b     # compare a model
+python evals/run.py --strategy single       # compare retrieval strategy
+```
 
 ## Adding your own corpus
 
