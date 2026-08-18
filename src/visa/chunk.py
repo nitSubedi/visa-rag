@@ -135,6 +135,19 @@ def _next_in_sequence(cur: str, cand: str) -> bool:
     return False
 
 
+def _promises_a_list(group: list[str]) -> bool:
+    """Does the paragraph so far end by handing its items to what follows?
+
+    "...or at least three of the following:" means the next "(i)" opens that list
+    rather than the section's paragraph (i). With a table of contents `_opens_with`
+    settles this; without one, strict sequencing accepts the roman numeral because
+    it genuinely is the next letter. 204.5 has no table of contents, which is how
+    the ten EB-1A criteria came to be filed under 204.5(i) — outstanding professors
+    and researchers — instead of 204.5(h)(3).
+    """
+    return "".join(group).rstrip().endswith(":")
+
+
 def _toc_letters(el: ET.Element) -> list[tuple[str, str]]:
     """Long CFR sections open with their own table of contents listing the real
     top-level paragraphs. That is authoritative — far better than guessing, since
@@ -182,7 +195,11 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
             for child in el.iter():
                 if child.tag == "HEAD" and not head:
                     head = clean("".join(child.itertext()))
-                elif child.tag in ("P", "FP"):
+                # eCFR flush paragraphs carry a depth suffix — FP-1, FP-2 — and a
+                # bare "FP" never appears. Matching only ("P", "FP") dropped 1,059
+                # elements of Title 8, which is where enumerated list items live:
+                # 264.1(a) promised a list of registration forms and delivered none.
+                elif child.tag == "P" or child.tag.startswith("FP"):
                     t = clean("".join(child.itertext()))
                     if not t:
                         continue
@@ -203,6 +220,11 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
                                 expect += 1
                         else:
                             ok = _next_in_sequence(cur_letter, cand)
+                            # (i), (v) and (x) are both letters and roman numerals.
+                            # Where the preceding text promises a list, they open
+                            # that list rather than a new top-level paragraph.
+                            if ok and cand in ("i", "v", "x") and _promises_a_list(group):
+                                ok = False
                         if not ok:
                             m = None
                     if m and group:
