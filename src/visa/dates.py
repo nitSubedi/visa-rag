@@ -138,7 +138,11 @@ def compute(profile: dict[str, object], today: dt.date | None = None) -> list[Wi
         out.append(opt_grace(oe))
     if os_:
         out.append(unemployment_budget(os_, stem=bool(profile.get("stem_extension"))))
-    if status.startswith("F"):
+    # Cap-gap is NOT derivable from F-1 status alone: it requires a timely-filed
+    # cap-subject H-1B. Emitting it for every F-1 profile put "[OPEN — 36 days
+    # remaining]" in front of the model on every turn, and it kept recommending a
+    # cap-gap extension to someone who had just said they had filed nothing.
+    if status.startswith("F") and profile.get("h1b_filed"):
         fy = t.year + 1 if t.month >= 10 else t.year
         out.append(cap_gap(fy + 1 if t.month >= 4 else fy))
     return out

@@ -95,21 +95,40 @@ def condense(answer_text: str, max_tokens: int) -> str:
 
 
 def render_history(turns: list[Turn], budget: int | None = None) -> str:
-    """The recent exchange, newest last, hard-capped."""
+    """What the person has already told you, oldest first.
+
+    Feeding back the previous *answer* made a 7b replay it: the second reply in a
+    live session repeated three whole sections of the first verbatim and appended a
+    single new line. Their own words are the part worth carrying — those are the
+    facts of the case, and they cannot be echoed into a non-answer.
+    """
     budget = settings.history_tokens if budget is None else budget
     recent = turns[-settings.history_turns :]
     if not recent or budget <= 0:
         return ""
-    per = max(24, budget // (2 * max(1, len(recent))))
-    blocks = [
-        f"  they asked: {t.question}\n  you answered: {condense(t.answer, per)}"
-        for t in recent
-    ]
+    blocks = [f"  - {t.question}" for t in recent]
     body = "\n".join(blocks)
     while est_tokens(body) > budget and len(blocks) > 1:
         blocks.pop(0)
         body = "\n".join(blocks)
-    return f"EARLIER IN THIS CONVERSATION (oldest first):\n{body}"
+    return (
+        "WHAT THEY HAVE ALREADY TOLD YOU THIS CONVERSATION (oldest first). Treat "
+        "these as established facts about them, and do not repeat an earlier answer "
+        "back to them — build on it:\n" + body
+    )
+
+
+# A question that cannot stand on its own: too short to embed usefully, or opening
+# with something that points back at what was just said.
+ANAPHORIC_OPENERS = (
+    "what if", "and ", "but ", "so ", "then ", "what about", "how about",
+    "why ", "no ", "yes ", "it ", "that ", "they ", "he ", "she ", "ok", "okay",
+)
+
+
+def needs_context(question: str) -> bool:
+    q = question.strip().lower()
+    return len(q.split()) <= 8 or q.startswith(ANAPHORIC_OPENERS)
 
 
 def retrieval_query(question: str, turns: list[Turn] | None = None) -> str:
@@ -118,8 +137,13 @@ def retrieval_query(question: str, turns: list[Turn] | None = None) -> str:
     A follow-up is often unintelligible alone — "what if it isn't E-Verify
     enrolled?" embeds toward nothing useful. Prepend the previous question so the
     search sees the subject the pronoun refers to.
+
+    Only when it is actually needed. Prepending unconditionally hijacked a
+    self-contained question: asked what the other STEM OPT requirements were, with
+    "no i have not filed h1b at all" glued on front, retrieval returned three H-1B
+    chunks and zero SEVP ones, and the answer followed the sources off-topic.
     """
-    if not turns:
+    if not turns or not needs_context(question):
         return question
     return f"{turns[-1].question} {question}"
 

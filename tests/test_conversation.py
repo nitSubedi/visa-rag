@@ -50,9 +50,16 @@ def test_history_is_empty_without_turns() -> None:
     assert ans.render_history([]) == ""
 
 
-def test_history_carries_the_previous_exchange() -> None:
+def test_history_carries_what_the_person_said() -> None:
+    """Their words are the facts of the case."""
     h = ans.render_history(_turns(1))
-    assert "question number 0" in h and "self-employment bar" in h
+    assert "question number 0" in h
+
+
+def test_history_does_not_feed_the_previous_answer_back() -> None:
+    """Echoing the reply made a 7b replay three whole sections of it verbatim."""
+    h = ans.render_history(_turns(1))
+    assert "self-employment bar" not in h
 
 
 def test_history_keeps_only_the_recent_turns() -> None:
@@ -113,4 +120,39 @@ def test_history_sits_above_the_facts_block() -> None:
         "and what about travel?", [_hit(1)], prof=PROFILE, turns=_turns(2)
     )
     body = msgs[1]["content"]
-    assert body.index("EARLIER IN THIS CONVERSATION") < body.index("USER PROFILE")
+    assert body.index("ALREADY TOLD YOU") < body.index("USER PROFILE")
+
+
+# --- context helps a follow-up, and must not hijack a standalone question ------
+
+
+def test_a_short_follow_up_borrows_the_previous_subject() -> None:
+    turns = [ans.Turn(question="Can I work at my own startup on STEM OPT?", answer="…")]
+    q = ans.retrieval_query("what if it isn't enrolled?", turns)
+    assert "startup" in q
+
+
+def test_a_self_contained_question_is_searched_on_its_own_words() -> None:
+    """Live failure: asked what the other STEM OPT requirements were, with the
+    previous question glued on the front, retrieval returned three H-1B chunks and
+    zero SEVP ones and the answer followed the sources off-topic."""
+    turns = [ans.Turn(question="no i have not filed h1b at all", answer="…")]
+    q = ans.retrieval_query(
+        "i'm sure they'll sign whatever form, what are the other requirements, "
+        "i am a computer science major, working as the founding engineer under the ceo",
+        turns,
+    )
+    assert "h1b" not in q.lower()
+
+
+def test_needs_context_recognises_a_dependent_question() -> None:
+    assert ans.needs_context("what if it isn't?")
+    assert ans.needs_context("and the 60 day rule?")
+    assert ans.needs_context("no i have not filed h1b at all")
+
+
+def test_needs_context_leaves_a_full_question_alone() -> None:
+    assert not ans.needs_context(
+        "i am a computer science major working as the founding engineer under the ceo, "
+        "what are the remaining requirements for the extension"
+    )

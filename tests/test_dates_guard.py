@@ -105,9 +105,29 @@ def test_the_same_bad_date_is_reported_once() -> None:
     assert len(problems) == 1
 
 
+# --- cap-gap is conditional on a filed petition -------------------------------
+
+
+def test_cap_gap_is_not_asserted_without_a_filed_petition() -> None:
+    """It was emitted for every F-1 profile, so "[OPEN - 36 days remaining]" sat in
+    front of the model every turn and it kept recommending a cap-gap extension to
+    someone who had just said they had filed nothing."""
+    from visa import dates
+
+    windows = dates.compute({"status": "F-1"})
+    assert not any("cap-gap" in w.name for w in windows)
+
+
+def test_cap_gap_is_computed_once_a_petition_is_filed() -> None:
+    from visa import dates
+
+    windows = dates.compute({"status": "F-1", "h1b_filed": True})
+    assert any("cap-gap" in w.name for w in windows)
+
+
 # --- the false positive that would have made the panel wallpaper ---------------
 
-CAPGAP_PROFILE = {"status": "F-1"}
+CAPGAP_PROFILE = {"status": "F-1", "h1b_filed": True}
 
 
 def test_the_day_after_a_window_closes_is_not_drift() -> None:
