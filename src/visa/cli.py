@@ -356,7 +356,12 @@ def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
                 border_style="cyan",
             )
         )
-    problems = ans.verify_citations(text, hits) + ans.verify_dates(text)
+    problems = (
+        ans.verify_citations(text, hits)
+        + ans.verify_dates(text)
+        + ans.verify_dialogue(text)
+        + ans.verify_grounding(text)
+    )
     if problems:
         c.print(
             Panel(

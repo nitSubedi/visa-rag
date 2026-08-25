@@ -15,9 +15,10 @@ from .search import Hit, Index, passes_gate
 SYSTEM = """You are a research assistant for U.S. immigration questions. You are not a \
 lawyer and you do not give legal advice.
 
-ABSOLUTE RULES:
-1. Answer ONLY from the numbered SOURCES below. If they do not support an answer, say
-   plainly: "The sources I have don't cover this." Never fill a gap from memory.
+WHERE THE LAW COMES FROM — these are absolute:
+1. Take every statement of law ONLY from the numbered SOURCES below. If they do not
+   support an answer, say plainly: "The sources I have don't cover this." Never fill a
+   legal gap from memory.
 2. Cite every substantive claim inline as [1], [2] matching the source numbers above.
    Cite ONLY by bracketed number. Never invent a section number, and never write a
    citation like "[8 CFR 204.5(d)]" — if you name a provision, it must appear verbatim
@@ -33,7 +34,27 @@ ABSOLUTE RULES:
    already closed. Silently omitting one is a failure.
 6. Never predict whether a petition will be approved. You may map evidence to criteria
    and identify what is thin, but adjudication outcomes are not yours to forecast.
-7. Be concrete and brief. No preamble, no restating the question."""
+
+WHAT TO DO WITH IT — rule 1 governs where law comes from. It does not excuse you from
+thinking. Reasoning about this person is required, not optional:
+7. The USER PROFILE and the question describe one specific person. Work out which of
+   the sources actually govern THEIR situation, and say so. An answer that is true in
+   general but never connects to their circumstances has failed, however well cited.
+   But use ONLY the facts they actually gave you. Never assert a fact about them that
+   is not in the profile or their own words — not their field of study, not their
+   dates, not their current status. Inventing a fact about someone's immigration
+   position is worse than any generic answer.
+8. Lead with what their own facts already settle, and name the provision that decides
+   the case — not every provision the search happened to return. If a source imposes a
+   condition they plainly do not meet, that is the answer; say it first.
+9. Where a rule turns on a fact you were not given, name that fact and say what turns
+   on it. Do not enumerate every branch — mark the conclusion as contingent on that one
+   thing and move on.
+10. Close with at most ONE question: the single fact that would most change your answer.
+    If nothing material is missing, ask nothing. Never ask instead of answering — you
+    answer first, with whatever you have.
+11. Be concrete. No preamble, no restating the question. Length should come from the
+    reasoning, never from padding."""
 
 CLOSER = (
     "This is research, not legal advice. For anything that affects your status, "
@@ -218,6 +239,67 @@ def verify_citations(text: str, hits: list[Hit]) -> list[str]:
 
 
 ISO_DATE_RE = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
+
+
+def trailing_questions(text: str) -> list[str]:
+    """The question sentences an answer closes with.
+
+    Rule 10 allows exactly one — the single fact that would most change the answer.
+    A list of questions is the same enumerating behaviour in a different costume, and
+    it hands the work back to someone who came here precisely because they did not
+    know which question to ask.
+    """
+    paras = [p.strip() for p in text.strip().split("\n\n") if p.strip()]
+    if not paras:
+        return []
+    return [q.strip() for q in re.findall(r"[^.!?\n]*\?", paras[-1]) if q.strip()]
+
+
+def verify_dialogue(text: str) -> list[str]:
+    """Answer first, then ask at most one thing."""
+    qs = trailing_questions(text)
+    if len(qs) > 1:
+        return [
+            f"closed with {len(qs)} questions — ask only the one that would most "
+            f"change the answer"
+        ]
+    return []
+
+
+# Sentences that tell someone what they must, may, or cannot do. Deliberately
+# over-inclusive: a false flag costs a glance at the panel, a missed one costs
+# somebody a wrong belief about their immigration status.
+DEONTIC_RE = re.compile(
+    r"\b(?:must|cannot|can't|may not|is barred|are barred|is required|are required|"
+    r"is eligible|are eligible|not eligible|qualifies|does not qualify|you can|"
+    r"you may|you should|you need to|you have to|you would need)\b",
+    re.I,
+)
+
+
+def verify_grounding(text: str) -> list[str]:
+    """Every claim about what this person must or may do has to hang off a source.
+
+    `verify_citations` validates the brackets that are present; it says nothing about
+    an answer that cites nothing at all. Once the model is asked to reason rather than
+    recite, that gap becomes the whole problem — observed live: fifteen legal claims,
+    zero citations, every existing check green.
+
+    This does not catch bad inference. It makes unsupported assertion visible, which
+    is the achievable goal.
+    """
+    blocks = [b.strip() for b in re.split(r"\n\s*\n|\n(?=\s*[-*\u2022]|\s*\d+\.)", text)]
+    ungrounded = [
+        b
+        for b in blocks
+        if b and DEONTIC_RE.search(b) and not re.search(r"\[\d{1,2}\]", b)
+    ]
+    if not ungrounded:
+        return []
+    return [
+        f"{len(ungrounded)} passage(s) state what you must or may do without citing a "
+        f"source — first: \"{' '.join(ungrounded[0].split())[:90]}…\""
+    ]
 
 
 def verify_dates(text: str, prof: dict[str, object] | None = None) -> list[str]:
