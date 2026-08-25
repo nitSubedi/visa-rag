@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # block. Anything set here must leave room for the sources plus the answer.
     num_ctx: int = 16384
     answer_reserve_tokens: int = 1400  # headroom kept free for the response
+    # Conversation state. Every question used to be answered as if asked by a
+    # stranger, so a follow-up could not build on what came before. Kept small and
+    # hard-capped: history competes with sources for the same window, and finding 0
+    # was caused by exactly this kind of silent overflow.
+    history_turns: int = 3
+    history_tokens: int = 700
     retrieval: str = "issues"  # issues | single
     # Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
     # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.

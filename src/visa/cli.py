@@ -318,9 +318,14 @@ def _show_issues(issues: list[str]) -> None:
         c.print(f"  [dim]· {i}[/dim]")
 
 
-def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
+def _answer_once(
+    idx: Index,
+    q: str,
+    k: int | None = None,
+    turns: list[ans.Turn] | None = None,
+) -> tuple[list[Hit], str]:
     with c.status("[dim]retrieving…[/dim]"):
-        hits, gated, warnings = ans.answer(q, idx, k, on_issue=_show_issues)
+        hits, gated, warnings = ans.answer(q, idx, k, on_issue=_show_issues, turns=turns)
     for w in warnings:
         c.print(f"[yellow]⚠ {w}[/yellow]")
     if not gated:
@@ -330,17 +335,27 @@ def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
         if hits:
             c.print("[dim]Closest passages, for what they're worth:[/dim]")
             _render_hits(hits[:4])
-        return []
-    msgs = ans.build_prompt(q, hits)
+        return [], ""
+    msgs = ans.build_prompt(q, hits, turns=turns)
     c.print()
     buf: list[str] = []
+    first = True
+    status = c.status("[dim]reading the sources…[/dim]")
+    status.start()
     try:
         for tok in ans.stream_chat(msgs):
+            if first:
+                status.stop()
+                first = False
             buf.append(tok)
             c.print(tok, end="", markup=False, highlight=False)
     except Exception as e:
+        status.stop()
         c.print(f"\n[red]generation failed:[/red] {e}")
-        return []
+        return [], ""
+    finally:
+        if first:
+            status.stop()
     c.print("\n")
     text = "".join(buf)
     # Show the computed deadlines rather than trusting the model to repeat them.
@@ -374,7 +389,7 @@ def _answer_once(idx: Index, q: str, k: int | None = None) -> list[Hit]:
     c.rule("[dim]sources[/dim]", style="dim")
     _render_hits(hits)
     c.print(f"[dim]{ans.CLOSER}[/dim]")
-    return hits
+    return hits, text
 
 
 def _repl(idx: Index, k: int | None) -> None:
@@ -396,6 +411,7 @@ def _repl(idx: Index, k: int | None) -> None:
         )
     )
     last: list[Hit] = []
+    turns: list[ans.Turn] = []
     while True:
         try:
             q = sess.prompt("\nask> ").strip()
@@ -427,7 +443,10 @@ def _repl(idx: Index, k: int | None) -> None:
             refresh()
             idx = Index.load()
             continue
-        last = _answer_once(idx, q, k) or last
+        hits, text = _answer_once(idx, q, k, turns)
+        last = hits or last
+        if text:
+            turns.append(ans.Turn(question=q, answer=text))
 
 
 @app.callback(invoke_without_command=True)

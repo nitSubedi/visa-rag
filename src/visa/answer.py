@@ -7,6 +7,7 @@ import json
 import re
 import urllib.request
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 
 from . import dates, profile
 from .config import settings, tier_label
@@ -67,10 +68,67 @@ def est_tokens(text: str) -> int:
     return int(len(text.split()) * 1.33)
 
 
+@dataclass
+class Turn:
+    """One exchange. The answer is kept only so the next question can build on it."""
+
+    question: str
+    answer: str
+
+
+def condense(answer_text: str, max_tokens: int) -> str:
+    """Keep the front of an answer, which rule 8 puts the conclusion in.
+
+    Carrying full prose forward would spend the window that sources need. Sentences
+    are kept whole — a conclusion truncated mid-clause can invert its meaning, which
+    is the last thing to feed back into a legal prompt.
+    """
+    out: list[str] = []
+    used = 0
+    for sent in re.split(r"(?<=[.!?])\s+", " ".join(answer_text.split())):
+        cost = est_tokens(sent)
+        if used + cost > max_tokens and out:
+            break
+        out.append(sent)
+        used += cost
+    return " ".join(out)
+
+
+def render_history(turns: list[Turn], budget: int | None = None) -> str:
+    """The recent exchange, newest last, hard-capped."""
+    budget = settings.history_tokens if budget is None else budget
+    recent = turns[-settings.history_turns :]
+    if not recent or budget <= 0:
+        return ""
+    per = max(24, budget // (2 * max(1, len(recent))))
+    blocks = [
+        f"  they asked: {t.question}\n  you answered: {condense(t.answer, per)}"
+        for t in recent
+    ]
+    body = "\n".join(blocks)
+    while est_tokens(body) > budget and len(blocks) > 1:
+        blocks.pop(0)
+        body = "\n".join(blocks)
+    return f"EARLIER IN THIS CONVERSATION (oldest first):\n{body}"
+
+
+def retrieval_query(question: str, turns: list[Turn] | None = None) -> str:
+    """What to search for.
+
+    A follow-up is often unintelligible alone — "what if it isn't E-Verify
+    enrolled?" embeds toward nothing useful. Prepend the previous question so the
+    search sees the subject the pronoun refers to.
+    """
+    if not turns:
+        return question
+    return f"{turns[-1].question} {question}"
+
+
 def build_prompt(
     question: str,
     hits: list[Hit],
     prof: dict[str, object] | None = None,
+    turns: list[Turn] | None = None,
 ) -> list[dict[str, str]]:
     """Assemble the prompt, ordered and budgeted so nothing critical is truncated.
 
@@ -89,7 +147,10 @@ def build_prompt(
         facts.append(p)
     if d := dates.render(prof):
         facts.append(d)
-    tail = "\n\n".join([*facts, f"QUESTION: {question}"])
+    # History sits above the facts, never below: profile and deadlines must stay
+    # closest to the question, and history is the part that may be dropped.
+    parts = [render_history(turns or []), *facts, f"QUESTION: {question}"]
+    tail = "\n\n".join(x for x in parts if x)
 
     budget = (
         settings.num_ctx
@@ -181,6 +242,7 @@ def answer(
     index: Index,
     k: int | None = None,
     on_issue: Callable[[list[str]], None] = lambda _: None,
+    turns: list[Turn] | None = None,
 ) -> tuple[list[Hit], bool, list[str]]:
     """Returns (hits, gate_passed, preamble_warnings)."""
     warnings = list(index.warnings)
@@ -191,16 +253,17 @@ def answer(
             "month — any cached answer would risk being wrong."
         )
 
-    if settings.retrieval == "issues" and looks_situational(question):
-        issues = plan_issues(question)
+    query = retrieval_query(question, turns)
+    if settings.retrieval == "issues" and looks_situational(query):
+        issues = plan_issues(query)
         if issues:
             on_issue(issues)
-            merged = index.search_many([question, *issues], k=k)
+            merged = index.search_many([query, *issues], k=k)
             # The gate still applies: decomposition must not become a way for an
             # off-domain question to sneak past the relevance floor.
             return merged, passes_gate(merged), warnings
 
-    hits = index.search(question, k=k)
+    hits = index.search(query, k=k)
     return hits, passes_gate(hits), warnings
 
 
