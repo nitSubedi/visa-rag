@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     keep_alive: str = "90s"
 
     top_k: int = 12
+    # Share of top_k reserved for the user's own words before spotted issues
+    # interleave. Pure round-robin gave the question 1/n of the budget, so the
+    # provision that actually governed the asked-about situation lost to issues the
+    # person never raised. See Index.search_many.
+    primary_share: float = 0.5
+    # At most this many chunks per citation, so one sprawling section cannot swallow
+    # the slate. Documented as 3 but implemented as 4-then-uncapped, which is how an
+    # EB-1A query came to fill 12 slots with 7 distinct chapters.
+    per_citation_cap: int = 3
     # 12 chunks of legal text is ~8.3k tokens; at the old 8192 the prompt overflowed
     # and silently dropped whatever came first — which was the computed-deadline
     # block. Anything set here must leave room for the sources plus the answer.

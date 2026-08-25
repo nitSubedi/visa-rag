@@ -179,12 +179,20 @@ class Index:
         return kept
 
     def search_many(self, queries: list[str], k: int | None = None) -> list[Hit]:
-        """Retrieve for several issues and merge, keeping each issue represented.
+        """Retrieve for the question plus its issues and merge.
 
-        A plain union lets one broad issue dominate the budget, which reproduces the
-        failure decomposition exists to fix. So results are interleaved round-robin:
-        every issue contributes its best passage before any issue contributes a
-        second.
+        `queries[0]` is the user's own words; the rest are spotted issues. A plain
+        union lets one broad issue dominate, which reproduces the failure
+        decomposition exists to fix — but pure round-robin has the opposite bug, and
+        it is the one that actually bit. With six issues the question itself got a
+        seventh of the budget, so a founder asking about life after OPT received
+        L-1 and EB-5 passages while the SEVP guidance that decides the case — the
+        self-employment bar — was crowded out. Measured: 6 of 12 slots on a plain
+        search, 1 of 12 after decomposition.
+
+        So the question keeps a reserved floor of the budget and the issues
+        interleave for the remainder. Issues still surface provisions the person did
+        not know to ask about; they can no longer outvote what they did ask.
         """
         k = k or settings.top_k
         # Each issue retrieves a full slate. Deduplication across issues is heavy —
@@ -205,14 +213,24 @@ class Index:
             merged.append(hit)
             return True
 
+        cap = settings.per_citation_cap
+
+        # Round 0: the question's own best passages, up to its reserved floor.
+        floor = min(k, max(1, round(k * settings.primary_share))) if ranked else 0
+        for hit in ranked[0] if ranked else []:
+            if len(merged) >= floor:
+                break
+            take(hit, cap)
+
         # Round 1: interleave so every issue is represented before any repeats,
         # capped per provision so one broad chapter cannot swallow the budget.
         for rank in range(k):
             for hits in ranked:
-                if rank < len(hits) and take(hits[rank], 4) and len(merged) >= k:
+                if rank < len(hits) and take(hits[rank], cap) and len(merged) >= k:
                     return merged
 
-        # Round 2: top up without the diversity cap rather than return short.
+        # Round 2: top up without the diversity cap rather than return short — an
+        # earlier version returned *fewer* sources than a single pass.
         for hits in ranked:
             for hit in hits:
                 if take(hit, k) and len(merged) >= k:
