@@ -262,6 +262,15 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
 H1 = re.compile(r"<h1[^>]*>(.*?)</h1>", re.S | re.I)
 
 
+# The Policy Manual carries its own footnote markers — 12,778 of them across 75% of
+# its chunks. The prompt asks the model to cite as [1], [2] matching OUR source
+# numbering, then hands it text littered with [64], [128] and the rest, and it cannot
+# tell them apart. Every fabricated citation observed came out of this. Worse, a
+# footnote [3] copied into an answer is *in range*, so verify_citations passes it while
+# it points somewhere else entirely.
+FOOTNOTE = re.compile(r"\s*\[\d{1,3}\]")
+
+
 def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
     """The export is one flat HTML document; hierarchy is carried by sequential
     <h1> headings (Volume N / Part X / Chapter N)."""
@@ -272,7 +281,7 @@ def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
         vol = part = chap = ""
         for i, (_start, e, head) in enumerate(marks):
             nxt = marks[i + 1][0] if i + 1 < len(marks) else len(html)
-            body = strip_html(html[e:nxt])
+            body = FOOTNOTE.sub("", strip_html(html[e:nxt]))
             if re.match(r"^Volume\s", head):
                 vol, part, chap = head, "", ""
                 continue
