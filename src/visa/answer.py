@@ -302,6 +302,54 @@ def verify_citations(text: str, hits: list[Hit]) -> list[str]:
 
 
 ISO_DATE_RE = re.compile(r"\b(20\d\d-\d\d-\d\d)\b")
+# Models write deadlines in prose ("October 1, 2027"), which the ISO pattern never
+# saw — so a date wrong by a full year passed every check.
+MONTHS = {
+    m: i
+    for i, full in enumerate(
+        [
+            "january", "february", "march", "april", "may", "june",
+            "july", "august", "september", "october", "november", "december",
+        ],
+        1,
+    )
+    for m in (full, full[:3])
+}
+PROSE_DATE_RE = re.compile(
+    r"\b(" + "|".join(sorted(MONTHS, key=len, reverse=True)) + r")[a-z]*\.?\s+"
+    r"(\d{1,2})(?:st|nd|rd|th)?,?\s+(20\d\d)\b",
+    re.I,
+)
+
+
+def _iter_dates(text: str) -> list[tuple[str, dt.date]]:
+    """Every date an answer states, ISO or prose."""
+    out: list[tuple[str, dt.date]] = []
+    for raw in ISO_DATE_RE.findall(text):
+        try:
+            out.append((raw, dt.date.fromisoformat(raw)))
+        except ValueError:
+            continue
+    for mon, day, year in PROSE_DATE_RE.findall(text):
+        try:
+            d = dt.date(int(year), MONTHS[mon.lower()[:3]], int(day))
+        except (ValueError, KeyError):
+            continue
+        out.append((f"{mon} {day}, {year}", d))
+    return out
+
+
+def _date_forms(d: dt.date) -> tuple[str, ...]:
+    """The spellings a source might use for the same day."""
+    full = d.strftime("%B")
+    return (
+        d.isoformat(),
+        f"{full} {d.day}, {d.year}",
+        f"{full} {d.day} {d.year}",
+        f"{full[:3]} {d.day}, {d.year}",
+        f"{d.month}/{d.day}/{d.year}",
+        f"{d.month:02d}/{d.day:02d}/{d.year}",
+    )
 
 
 def trailing_questions(text: str) -> list[str]:
@@ -365,40 +413,76 @@ def verify_grounding(text: str) -> list[str]:
     ]
 
 
-def verify_dates(text: str, prof: dict[str, object] | None = None) -> list[str]:
-    """Catch the model re-deriving a deadline and drifting off by a day or two.
+def verify_dates(
+    text: str,
+    prof: dict[str, object] | None = None,
+    hits: list[Hit] | None = None,
+) -> list[str]:
+    """Catch a stated deadline that the computed facts and sources do not support.
 
-    Observed: an answer correctly quoted the filing window opening 2027-02-13, then
-    concluded "the earliest filing date would be 2027-02-14". A deadline that is
-    almost right is the most dangerous output this tool can produce, so any date
-    close to — but not equal to — a computed boundary is reported.
+    Two failures, both observed live:
+
+    * Drift. An answer correctly quoted the filing window opening 2027-02-13, then
+      concluded "the earliest filing date would be 2027-02-14". Almost right is the
+      most dangerous output this tool produces.
+    * Derivation. An answer wrote "the H-1B start date of October 1, 2027" for a
+      FY2027 cap-gap that runs to an October 1 *2026* start. Wrong by a year, in
+      prose the ISO pattern never matched, past every check.
+
+    Pass `hits` to enable the second check: a date belongs in an answer only if it
+    appears in the computed deadlines or verbatim in a retrieved source. A date the
+    model worked out for itself is flagged even when it happens to be correct —
+    deriving deadlines is precisely what the deterministic-dates design forbids, and
+    a right answer reached the forbidden way is right by luck.
     """
-    windows = dates.compute(prof if prof is not None else profile.load())
-    if not windows:
-        return []
+    prof = prof if prof is not None else profile.load()
+    windows = dates.compute(prof)
     boundaries = {
         d: w.name for w in windows for d in (w.opens, w.closes) if d is not None
     }
-    if not boundaries:
-        return []
+
+    supported = ""
+    if hits is not None:
+        supported = dates.render(prof) + "\n" + "\n".join(h.row.text for h in hits)
 
     problems = []
-    for raw in set(ISO_DATE_RE.findall(text)):
-        try:
-            got = dt.date.fromisoformat(raw)
-        except ValueError:
-            continue
+    for raw, got in _iter_dates(text):
         if got in boundaries:
             continue
-        for boundary, name in boundaries.items():
-            delta = abs((got - boundary).days)
-            if 0 < delta <= 3:
-                problems.append(
-                    f"answer says {raw}, but the computed {name} boundary is "
-                    f"{boundary.isoformat()} ({delta}d off) — trust the computed date"
-                )
-                break
-    return problems
+        near = next(
+            (
+                (b, n)
+                for b, n in boundaries.items()
+                if 0 < abs((got - b).days) <= 3
+            ),
+            None,
+        )
+        if near:
+            b, name = near
+            problems.append(
+                f"answer says {raw}, but the computed {name} boundary is "
+                f"{b.isoformat()} ({abs((got - b).days)}d off) — trust the computed date"
+            )
+            continue
+        if hits is None:
+            continue
+        if any(form.lower() in supported.lower() for form in _date_forms(got)):
+            continue
+        problems.append(
+            f"answer states {raw}, which appears in neither the computed deadlines "
+            f"nor any retrieved source — the model worked it out, so check it"
+        )
+    return _dedupe(problems)
+
+
+def _dedupe(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out = []
+    for i in items:
+        if i not in seen:
+            seen.add(i)
+            out.append(i)
+    return out
 
 
 def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[str]:

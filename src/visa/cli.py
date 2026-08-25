@@ -373,7 +373,7 @@ def _answer_once(
         )
     problems = (
         ans.verify_citations(text, hits)
-        + ans.verify_dates(text)
+        + ans.verify_dates(text, hits=hits)
         + ans.verify_dialogue(text)
         + ans.verify_grounding(text)
     )
