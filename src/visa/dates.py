@@ -104,8 +104,11 @@ def cap_gap(fiscal_year: int) -> Window:
         dt.date(fiscal_year - 1, 4, 1),
         dt.date(fiscal_year - 1, 9, 30),
         "8 CFR 214.2(f)(5)(vi)",
-        "Requires a timely-filed, pending or approved cap-subject H-1B "
-        "requesting change of status with an Oct 1 start.",
+        # State the start date in full. Writing "an Oct 1 start" left the model to
+        # work the year out, and it produced October 1 2027 for a FY2027 cap-gap.
+        # Deriving deadlines is the thing this module exists to prevent.
+        f"Requires a timely-filed, pending or approved cap-subject H-1B "
+        f"requesting change of status with an October 1, {fiscal_year - 1} start.",
     )
 
 

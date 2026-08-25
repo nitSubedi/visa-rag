@@ -103,3 +103,55 @@ def test_the_same_bad_date_is_reported_once() -> None:
         hits=[_source("no dates here")],
     )
     assert len(problems) == 1
+
+
+# --- the false positive that would have made the panel wallpaper ---------------
+
+CAPGAP_PROFILE = {"status": "F-1"}
+
+
+def test_the_day_after_a_window_closes_is_not_drift() -> None:
+    """Cap-gap ends September 30 and the new status begins October 1.
+
+    Those are adjacent by design, so a drift check run first reported a correct
+    "October 1" as one day off the boundary — on every cap-gap answer there is.
+    A warning that cries wolf systematically is worse than no warning.
+    """
+    from visa import dates
+
+    windows = dates.compute(CAPGAP_PROFILE)
+    capgap = next(w for w in windows if "cap-gap" in w.name)
+    day_after = capgap.closes.toordinal() + 1
+    import datetime as dt
+
+    start = dt.date.fromordinal(day_after)
+    written = f"{start.strftime('%B')} {start.day}, {start.year}"
+    problems = ans.verify_dates(
+        f"Your H-1B status begins {written}.",
+        CAPGAP_PROFILE,
+        hits=[_source("no dates here")],
+    )
+    assert problems == [], f"{written} was wrongly flagged: {problems}"
+
+
+def test_the_computed_note_states_the_start_year() -> None:
+    """The model wrote October 1 2027 for a FY2027 cap-gap because the note said
+    only "an Oct 1 start" and left it to work the year out."""
+    from visa import dates
+
+    rendered = dates.render(CAPGAP_PROFILE)
+    capgap = next(w for w in dates.compute(CAPGAP_PROFILE) if "cap-gap" in w.name)
+    assert f"October 1, {capgap.closes.year}" in rendered
+
+
+def test_the_wrong_year_is_still_caught() -> None:
+    from visa import dates
+
+    capgap = next(w for w in dates.compute(CAPGAP_PROFILE) if "cap-gap" in w.name)
+    wrong = f"October 1, {capgap.closes.year + 1}"
+    problems = ans.verify_dates(
+        f"Your H-1B status begins {wrong}.",
+        CAPGAP_PROFILE,
+        hits=[_source("no dates here")],
+    )
+    assert problems, f"{wrong} should be flagged"

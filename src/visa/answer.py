@@ -449,12 +449,14 @@ def verify_dates(
     for raw, got in _iter_dates(text):
         if got in boundaries:
             continue
+        # Support first, drift second. A window's close has a neighbour by design —
+        # cap-gap ends Sep 30 and the new status begins Oct 1 — so checking drift
+        # first flagged a correct October 1 as "1d off", on every cap-gap answer.
+        # A warning that cries wolf systematically is worse than none.
+        if any(form.lower() in supported.lower() for form in _date_forms(got)):
+            continue
         near = next(
-            (
-                (b, n)
-                for b, n in boundaries.items()
-                if 0 < abs((got - b).days) <= 3
-            ),
+            ((b, n) for b, n in boundaries.items() if 0 < abs((got - b).days) <= 3),
             None,
         )
         if near:
@@ -465,8 +467,6 @@ def verify_dates(
             )
             continue
         if hits is None:
-            continue
-        if any(form.lower() in supported.lower() for form in _date_forms(got)):
             continue
         problems.append(
             f"answer states {raw}, which appears in neither the computed deadlines "
