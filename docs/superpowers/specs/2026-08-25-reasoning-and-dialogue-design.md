@@ -1,7 +1,9 @@
 # Reasoning and dialogue — design
 
 **Date:** 2026-08-25
-**Status:** proposed, not implemented
+**Status:** stages 1-3 implemented 2026-08-25 (C+D `be3fca8`, A `376fece`, E `be3fca8`,
+plus fixes `4cdea2b` `fbbf1bc` `456e520` `1f0694f` `5337ec8`). Stage 4 (B, the persisted
+situation model) not started; its open questions below are still open.
 
 ## The problem
 

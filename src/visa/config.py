@@ -57,6 +57,15 @@ class Settings(BaseSettings):
     history_turns: int = 3
     history_tokens: int = 700
     retrieval: str = "issues"  # issues | single
+    # Issue planning is a model call too, and it was the only one never pinned.
+    # Generation ran at temperature 0 while `plan_issues` sampled at 0.3, so the
+    # issue list — and therefore the entire retrieval slate the answer is written
+    # from — was resampled every run: the same suite scored 13/16 and 12/16 an hour
+    # apart with no code change. Finding 0b's rule applies to the whole pipeline,
+    # not just its last stage, and a research tool that returns different sources
+    # for the same question twice is not reproducible for the user either.
+    # Raise it only to deliberately sample issue-spotting, and raise `--repeat` with it.
+    plan_temperature: float = 0.0
     # Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
     # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
     # Re-measure if `embed_model` changes; the floor is model-specific.

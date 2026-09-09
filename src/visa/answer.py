@@ -515,7 +515,7 @@ def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[st
         raw = "".join(
             stream_chat(
                 [{"role": "user", "content": prompt}],
-                temperature=0.3,
+                temperature=settings.plan_temperature,
             )
         )
     except Exception:

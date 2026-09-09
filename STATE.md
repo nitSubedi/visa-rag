@@ -1,25 +1,75 @@
 # Project state — visa-rag
 
-**Last updated:** 2026-08-18
-**Status:** v1 working end-to-end. v2 (sharing/packaging) not started.
+**Last updated:** 2026-09-09
+**Status:** v1 working end-to-end, plus stages 1-3 of the reasoning/dialogue spec.
+Stage 4 (persisted situation model) and v2 (sharing/packaging) not started.
 
 ---
 
 ## Where things stand
 
-`visa init` → `visa ask` works. **8,475 chunks** indexed across four tiers, all five
-sources ingesting cleanly. 44 tests passing.
+`visa init` → `visa ask` works, and the REPL now holds a conversation. **8,305 chunks**
+indexed across four tiers, all five sources ingesting cleanly. 92 tests passing.
 
 ```
-8-cfr                 4,247 chunks   tier 2 regulation   (edition 2026-07-21)
-uscis-policy-manual   2,581 chunks   tier 3 policy
+8-cfr                 4,247 chunks   tier 2 regulation   (edition 2026-08-21)
+uscis-policy-manual   2,411 chunks   tier 3 policy       (footnotes stripped, see 16)
 ina-8usc              1,621 chunks   tier 1 statute
 sevp-stem-opt            21 chunks   tier 4 guidance
 uscis-policy-updates      5 chunks   tier 4 guidance
 ```
 
+Reindexed 2026-08-25; all five shards inside their refresh windows as of 2026-09-09.
+
 Verified live: asking for the NIW standard returns the correct *Dhanasar* three prongs,
 cited to USCIS PM Vol 6, Pt F, Ch 5. Default model is now `qwen2.5:7b` — see finding 7.
+
+**Evals re-run 2026-09-09**, the first measurement since the reasoning and dialogue
+work. Two runs of the *same code, same corpus, one hour apart*:
+
+```
+                        --repeat 3          --repeat 5
+stem_self_employment    4/6                 3/6      (+unemployment_cap missing)
+niw_standard            4/4                 4/4
+opt_filing_window       3/3                 3/3
+travel_on_opt           2/3                 2/3
+                       13/16  (81%)        12/16  (75%)
+                        391s                520s
+```
+
+**The published 81% was not reproducible, and that was the headline** (fixed since — see
+10e; the instrument is deterministic again and the current figure is 12/16, 75%). More samples moved
+it *down*, which is what you expect when 13/16 was the optimistic tail of a
+distribution rather than a point. The honest current statement is **12-13/16, ~75-81%,
+±1 check**, and README's flat "81%" overstates it — see finding 0d for the mechanism and
+Known gaps for the decision it forces.
+
+Three further things to read off this, none of them the headline:
+
+**The motivating failure is unfixed.** `self_employment` and `everify` are exactly what
+the reasoning spec was written to fix (finding 12), and they miss in both runs. Stages
+1-3 changed the behaviour of a real conversation; they did not move this scenario. At
+`--repeat 5` `unemployment_cap` joins them, so 4 of that scenario's 6 checks are now
+unstable.
+
+**Composition has inverted since finding 7.** That finding recorded the same 13/16 as
+STEM **6/6** with `travel_on_opt` **0/3** — "perfect on substance, misses only dates".
+Both runs today are the mirror image: STEM 4/6 and 3/6, travel 2/3 and 2/3. The two date
+checks that were failing now pass and the substance checks fail, so the argument finding
+7 rests on — that 7b's weakness is precisely the one the architecture removes in Python
+— no longer describes the system.
+
+**Both scenarios are stochastic, provably.** `stem_self_employment` scored 4/6 while
+flagging three checks and 3/6 while flagging four; `travel_on_opt` scored 2/3 while
+flagging two, twice. None of those combinations is reachable if every repeat produced
+the same answer — three deterministic failures score 3/6, not 4/6. At least some flagged
+checks pass in some runs and fail in others.
+
+Two more things to read off this rather than the headline. **The motivating failure is
+unfixed:** `self_employment` and `everify` are exactly what the reasoning spec was
+written to fix (finding 12), and they still miss. Stages 1-3 changed the behaviour of a
+real conversation; they did not move this scenario. **And the runs are no longer
+deterministic** — see finding 0d, which is the more consequential of the two.
 
 ---
 
@@ -44,6 +94,38 @@ silent by construction.
 **0b. Evals must run at temperature 0.** At 0.15 the same scenario swung ±1 check
 between runs, which is larger than most effects being measured. Two "regressions" were
 chased before this was noticed. `evals/run.py --repeat N` averages.
+
+**0d. Temperature 0 no longer makes a run deterministic — 0b is now only half true.**
+`evals/run.py` pins `stream_chat(..., temperature=0.0)` for the final generation, and
+that was sufficient when generation was the only model call. It is not any more:
+`plan_issues()` runs inside `answer()` at **temperature 0.3**, so the issue list — and
+therefore the retrieval slate the answer is written from — is resampled on every repeat.
+The eval's temperature discipline covers the last stage of a two-stage pipeline.
+
+Measured directly on 2026-09-09: the same configuration scored **13/16 at `--repeat 3`
+and 12/16 at `--repeat 5`**, an hour apart, no code or corpus change between them. The
+per-scenario tallies confirm the mechanism — `stem_self_employment` scored 4/6 while
+flagging *three* checks, which is arithmetically unreachable if every repeat produced
+the same answer (three deterministic failures score 3/6).
+
+Note the direction: raising `--repeat` moved the score **down**. 13/16 was the
+optimistic end of a distribution, not a point estimate, and it is the number the README
+publishes.
+
+Consequences, in order of importance:
+1. **The noise floor is wider than finding 11 assumed.** A one-check delta was already
+   called below the instrument's resolution; it is now below its *variance* too, and a
+   16-check suite cannot resolve anything smaller than a couple of checks.
+2. `--repeat` is no longer an optional averaging convenience. A single run is a sample.
+   **Do not compare two configurations at `--repeat 1`.**
+3. The claim "deterministic at temperature 0 (verified 3/3 identical)" in Known gaps
+   dated from before issue planning existed and has been corrected.
+
+The fix is a decision, not a bug: either pin `plan_issues` to temperature 0 for evals
+(measures the pipeline as configured, loses the sampling that issue-spotting may
+benefit from) or keep it and raise `--repeat` and report variance rather than a point
+score. Deciding this comes *before* the next attempt at citation compliance, because
+that work will be judged by this instrument.
 
 **0c. Retrieval is question-shaped, not issue-shaped.** A described situation embeds
 toward passages resembling what the person *said*; the provision that decides the case
@@ -194,6 +276,275 @@ tokens 10,523 → ~3,400 and made the 3-of-10 threshold arithmetic exact in Pyth
 did **not** fix per-criterion accuracy. Caveat: all of this ran against the *broken*
 corpus, where retrieval returned no regulation at all — rerun before trusting it.
 
+**10b. Finding 10 was rerun on 2026-09-09 and its headline does not survive.** With the
+corpus fixed and `204.5(h)` **force-injected** into every call — one call per criterion,
+`qwen2.5:7b`, temperature 0, 3 repeats — the model got **7 of 7 clear-cut criteria
+right**, stably (3/3 identical on every criterion):
+
+```
+(i) prizes      NOT MET  ✓     (vi) authorship   MET      ✓
+(ii) membership NOT MET  ✓     (vii) exhibits    NOT MET  ✓
+(iii) published NOT MET  ✓     (x) commercial    NOT MET  ✓
+(iv) judging    MET      ✓
+```
+
+Both consequential errors finding 10 recorded failed to reproduce. The phantom "no
+scholarly publications" is gone — it cited "14 peer-reviewed publications" correctly.
+And the membership trap was handled for the right reason: *"IEEE with open membership,
+which does not require outstanding achievements."* No invented facts about the candidate
+in any run.
+
+**What actually fails is not the reasoning.** Three things, none of them what finding 10
+blamed:
+1. **Retrieval never delivers the governing regulation** — see 10c. This spike had to
+   inject it by hand; the live tool would not have had it.
+2. **Final-merits judgment is over-generous.** Criterion (ix) was called MET on a
+   $145k salary against a $130k median. An 11.5% premium is not "significantly high
+   remuneration", and this is exactly the gap the README already declines to cross.
+3. **Format compliance fails the same way citations do.** Criterion (v) echoed the
+   template back verbatim (`VERDICT: MET | NOT MET | INSUFFICIENT EVIDENCE`) instead of
+   choosing, and (viii) collapsed a three-line format onto one. Note the scoring harness
+   mis-read (v) as MET because the regex matched the template — the instrument had the
+   same bug as the model. Constrained decoding makes both impossible.
+
+**Also confirms finding 0d's mechanism.** Every criterion was 3/3 stable here. This path
+makes no `plan_issues` call, which is the only temperature-0.3 call in the pipeline.
+That is direct evidence the eval suite's variance comes from issue planning, not
+generation — so pinning `plan_issues` is the right fix, not a guess.
+
+Caveats: one synthetic borderline record, one model, ground truth authored in-house,
+and per-criterion verdicts are not an overall eligibility assessment — which remains the
+dangerous output and is still not shipped.
+
+**10c. Retrieval returns the wrong visa category for EB-1A, and it is not close.**
+The corpus is correct: `204.5(h)` is a single chunk carrying all ten criteria verbatim,
+and `204.5(i)` is properly the outstanding-professor category — finding 2b is dead.
+But retrieval does not surface it:
+
+```
+"EB-1A extraordinary ability criteria"          → tier-2 hits are 8 CFR 214.2(o)  (O-1!)
+"evidence of extraordinary ability 3 of 10"     → tier-2 hits are 8 CFR 214.2(o)  (O-1!)
+"original contributions of major significance"  → tier-2 hits: 0 of 8
+```
+
+The third is the tell: that is the *literal text of criterion (v)*, present verbatim in
+the `204.5(h)` chunk, and it cannot be found by its own words.
+
+Mechanism is granularity, not embedding quality — and **the chunker was not
+misbehaving**. `204.5(h)` measures **703 tokens against a 700 budget** (`ntokens` is
+words x 1.33, not chars/4 — an earlier note in this file said 848 and was wrong). It sat
+within budget and was packed exactly as designed. The defect is that one vector was made
+to stand for ten independent legal tests plus the definition, the 3-of-10 gate and the
+employment clause, so it matches none of them sharply. `214.2(o)` is split into many
+focused chunks whose criteria are worded near-identically to EB-1A's.
+**The correct provision loses to the wrong one because the wrong one is better chunked** —
+and O-1 is a nonimmigrant category with a different standard.
+
+The lesson generalises past this section: a token budget is the wrong instrument for a
+provision that enumerates alternatives. Size was never the signal; *how many separable
+legal tests share one embedding* is.
+
+This is the "retrieval does not guarantee the governing provision" gap with a mechanism
+and a worked example. Two candidate fixes: split long provisions per enumerated
+paragraph, or rerank retrieved candidates with a small cross-encoder instructed to
+prefer binding immigrant-category regulation. They are complementary.
+
+**10d. Splitting the enumeration helped, and did not fix it. Tier weight is the
+binding constraint.** `_split_enumerated` (>= 4 enumerated items and >= 400 tokens ->
+stem plus one piece per item, each carrying the stem's tail) turned `204.5(h)` from one
+703-token chunk into **11 chunks of 194-352 tokens**. Corpus 8,305 -> 10,779.
+
+Result on the five finding-10c probes: **2 of 5 fixed, 3 unchanged.** General EB-1A
+queries now surface the regulation where they previously returned none. But the three
+queries that name a *single criterion in its own regulatory wording* still return zero
+`204.5(h)`, which was the flagship failure.
+
+Do not misdiagnose this as an embedding problem — the traces rule out every easy
+explanation in turn:
+
+```
+query: "commanded a high salary compared to others in the field"
+  dense: target chunk cosine 0.613, rank  60   (PM chunks 0.70-0.80)
+  BM25:  target chunk rank 2 of 795 scored   <- the lexical half WORKS
+  fused: target absent from top 8
+```
+
+BM25 finds it exactly as designed. The loss happens in fusion, and it is not a fusion
+bug either: the two chunks that outrank it are Policy Manual passages that *also*
+contain the phrase, legitimately winning on both signals because they discuss the
+criterion at length while the regulation merely states it. Arithmetic:
+
+```
+target  (dense 60, lex 2):  1/121 + 1/63  = 0.0241  x 0.97 (regulation) = 0.0234
+PM      (dense  0, lex 0):  1/61  + 1/61  = 0.0328  x 0.92 (policy)     = 0.0302
+```
+
+**Precedence is encoded as a 5% score multiplier, and 5% cannot express "the binding
+regulation outranks commentary quoting it."** In a legal research tool precedence is not
+a tiebreaker; it is an ordering principle, and `TIERS` currently makes it a nudge. This
+is the same class of error as finding 11, where the question's own words were left to
+compete on score instead of being given reserved slots.
+
+Two candidate fixes, in the codebase's existing idiom:
+1. **Reserve slots by tier** — guarantee the highest-tier source matching a query a
+   floor of the slate, exactly as `primary_share` does for the question's own words.
+   Deterministic, no new model, no new dependency.
+2. **Rerank** a wider candidate pool with a 0.6B cross-encoder instructed to prefer
+   binding immigrant-category regulation. Note the target sits at dense rank 60-145, so
+   a reranker over the usual top-50 would never see it — the candidate pool has to widen
+   with it.
+
+(1) is cheaper and should be measured before (2) is built.
+
+A note on the split's own cost: each piece carries 120 tokens of stem so a criterion is
+never severed from "at least three of the following", and that stem dilutes the piece's
+embedding — the criterion's distinctive wording is ~35 tokens against ~120 of shared
+preamble, which is part of why cosine sits at 0.61. Decoupling embedding text from
+served text would fix it properly and needs a `Chunk` schema change. Not attempted.
+
+**10e. The split regressed the evals, and the isolation is clean.** Two changes landed
+together, so both were measured apart:
+
+```
+baseline (neither)                       12-13/16
+A only   (temp pin, pre-split corpus)    12/16 (75%)   niw_standard 4/4
+A + B    (temp pin, split corpus)        10/16 (62%)   niw_standard 2/4
+```
+
+**B is the regression.** And the cause is not what the first diagnosis assumed: the
+*Dhanasar* chunk (`USCIS PM Vol 6, Pt F, Ch 5`) sits 1-of-12 in the slate on **both**
+corpora — it was never displaced. What changed is the tier-4 NIW policy alerts, **5
+slots down to 3**, pushed out by *three fragments of `8 CFR 204.12(c)`* taking the top
+of the slate at 0.77/0.77/0.76. The two failing checks, `prong_positioned` and
+`prong_balance`, are the prongs that founder-specific guidance carries.
+
+**Splitting inflates a provision's footprint from 1 slot to `per_citation_cap`.** The
+cap is per *citation*, and fragments of one provision share their citation, so a
+provision that could only ever contribute one chunk can now contribute three. The cap
+behaved exactly as documented; the split changed the supply beneath it.
+
+**This rules out the fix proposed in 10d.** "Reserve slots for the highest tier" is
+wrong, and finding 1 says why: *Dhanasar* and *Kazarian* live **only** in the Policy
+Manual, so NIW needs tier 3-4 while the EB-1A criteria need tier 2. Any fixed tier
+preference breaks one to serve the other. What the evidence supports is a **floor per
+tier** — every tier with candidates above threshold keeps a minimum share, so newly
+fragmented regulation cannot crowd out policy and vice versa.
+
+B is parked unmerged for this reason: its benefit is unrealised (2 of 5 probes) while
+its cost is measured (-2 checks, and the NIW answer the README uses as its worked
+example). It returns with the slate-allocation fix, measured together.
+
+**A, by contrast, did exactly what it was for.** Every scenario's score now equals its
+count of unflagged checks — `stem` 3/6 with 3 flagged, `travel` 2/3 with 1 flagged.
+That arithmetic is only reachable if every repeat produced an identical answer, and it
+is the combination finding 0d proved impossible this morning (4/6 with 3 flagged).
+**The instrument is deterministic again.**
+
+**11. Retrieval must reserve a share of the slate for the question's own words.**
+`search_many` interleaved round-robin, so with six spotted issues the user's actual
+question held a *seventh* of the slate. A founder asking about life after OPT got L-1
+and EB-5 passages while the SEVP self-employment bar — the rule that decides the case —
+fell to 1 chunk of 12, against 6 on a plain single search. Finding 0c is right that
+issue decomposition beats one query; it is wrong if the decomposition *replaces* the
+question. `settings.primary_share` (0.5) now floors the question's own hits and issues
+interleave for the remainder. Also made `per_citation_cap` match its documentation: a
+real 3, not 4-then-uncapped.
+
+Evals were unresolved on this — 14/16 before, 13/16 after — but both slates carry the
+same content (5 E-Verify chunks, 4 unemployment chunks) in a different order, so the
+delta is ordering and sits **below the resolution of a 16-check instrument**. Noted
+because it is the second time a change has been judged by a number too coarse to carry
+the judgement.
+
+**12. The system prompt had written "do not invent law" as "do not think".**
+Asked what a founder's options were after OPT, the tool returned a correct, cited,
+generic enumeration that never reached the rule deciding the case. Retrieval was not
+the constraint — on the STEM scenario the model receives 7 SEVP chunks, 5 mentioning
+E-Verify, and still failed the `self_employment` check. Rule 1 said answer only from
+sources and never fill a gap from memory; nothing anywhere asked the model to connect
+those sources to the person asking.
+
+SYSTEM is now two blocks. **Where the law comes from** is unchanged and absolute.
+**What to do with it** is new and required: work out which sources govern this person,
+lead with what their own facts settle, name the fact a rule turns on rather than
+enumerating branches, close with at most one question — after answering, never instead.
+
+Asking a 7b to reason immediately produced fluent *uncited* advice and two invented
+facts about the user (a STEM degree, a grace period they are not in) with every
+existing check green — `verify_citations` validates brackets that exist and says
+nothing about an answer citing nothing at all. So the grounding check shipped in the
+same commit rather than a later stage: `verify_grounding` surfaces deontic sentences
+(must/may/cannot/is eligible…) carrying no bracket. It does not catch bad inference;
+it makes unsupported assertion visible, which is the achievable goal.
+
+**13. Conversation state fails in two opposite directions, and both were shipped
+before they were caught.**
+`_repl` kept nothing between turns, so "what if it isn't enrolled in that?" retrieved on
+its own words and embedded toward nothing. Fixing it introduced three regressions
+inside one session:
+
+- **Feeding the previous answer back makes a 7b replay it.** Rendered as "you answered:
+  …", the second reply repeated three whole sections of the first verbatim and appended
+  one new line. Carry only *what the person said* — their words are the facts of the
+  case; the model's own prose is not.
+- **Prepending the previous question unconditionally hijacks a self-contained one.**
+  "What are the other STEM OPT requirements" with "no i have not filed h1b at all"
+  glued on front retrieved 3 H-1B chunks and 0 SEVP ones. Borrow context only when the
+  question cannot stand alone — `needs_context()` / `ANAPHORIC_OPENERS`.
+- History competes with sources for the same window, which is exactly how finding 0
+  happened. Hard-capped at `history_tokens` (700) over `history_turns` (3), condensed on
+  whole sentence boundaries — a conclusion cut mid-clause can invert. Order is
+  SYSTEM → SOURCES → history → facts/deadlines → question; history goes **above** the
+  facts block, never below. The finding-0 guard is extended to assert the deadline block
+  survives a full source slate *plus* maximum history.
+
+**14. `verify_dates` was drift-only, and drift-only is the wrong shape of check.**
+A live answer wrote "the H-1B start date of October 1, 2027" for a FY2027 cap-gap
+running to an October 1 **2026** start. Prose, so the ISO pattern never matched it;
+wrong by 366 days, so it was far outside the ±3-day drift window. Every check stayed
+green. Now prose dates are parsed, and the rule the tool already applies to citations
+applies to dates: **a date belongs in an answer only if it appears in the computed
+deadlines or verbatim in a retrieved source.** A date the model worked out for itself is
+flagged even when correct — deriving deadlines is the thing deterministic dates exists
+to prevent, and right-by-derivation is right by luck.
+
+**14b. Check support first, drift second.** The opposite order reported a correct
+"October 1, 2026" as one day off the 2026-09-30 boundary. That is not drift: a window's
+close has a neighbour *by design* — cap-gap ends September 30 and the new status begins
+October 1 — so it would have fired on every cap-gap answer there is. A warning that
+cries wolf systematically is worse than no warning. Also state the start **year** in the
+computed note; "an Oct 1 start" is what left the model deriving a year in the first
+place, which is what produced October 1 2027.
+
+**15. `dates.compute()` must not assert what status alone cannot derive.** It emitted
+the cap-gap window for every F-1 profile, so "[OPEN — 36 days remaining]" sat in front
+of the model on every turn and it recommended a cap-gap extension to someone who had
+just said they had filed nothing. Cap-gap requires a timely-filed cap-subject H-1B.
+Gated on `profile.h1b_filed`.
+
+**16. The Policy Manual's own footnote markers were being read as source numbers.**
+The prompt asks for citations as [1], [2] matching *our* numbered sources, then handed
+the model PM text carrying **12,778 footnote markers across 75% of its chunks**. It
+cannot tell them apart. Every fabricated citation observed that day came from here —
+[64], [65], [68], [26], [13], [28] — and the quiet case is worse: a footnote **[3]**
+copied into an answer is *in range*, so `verify_citations` passes it while it points at
+an unrelated source. This is finding 2c again in a new place: a guardrail that compares
+the answer to the corpus cannot see corruption that is already in the corpus.
+
+Stripped at chunk time (`chunk.FOOTNOTE`). Reindexed: 0 markers remaining, PM 2,581 →
+2,411 chunks, and no out-of-range citation in a three-turn replay.
+
+**17. On a 7b, prompt length and rule *position* beat rule wording — and citation
+compliance is still not fixed.** The finding-12 rewrite doubled SYSTEM to 678 tokens
+and pushed the citation rule to the top. Same question, same sources, same temperature:
+the old 7-rule prompt cited 4 times, the new 11-rule one cited **zero**. Finding 0
+already said the tail is best attended and it applies to instructions, not just data.
+Reasoning guidance first, the two non-negotiable rules last, 337 tokens.
+
+**This is where the last session ended.** Compliance improved but remains erratic —
+**7, 0, 1 inline citations across three turns** of the same conversation. Few-shot
+examples or a post-check that flags uncited claims are the untried options.
+
 
 ---
 
@@ -221,18 +572,31 @@ what makes the v2 share-guard a one-line invariant instead of a special case.
 Retrieval is hybrid — BM25 fused with dense vectors via reciprocal-rank fusion. Pure
 embeddings retrieve badly on exact citations (`214.2(f)(10)`) and terms of art, which is
 most of what legal lookup asks for. Tier weighting nudges statute above policy. At most
-3 chunks per citation so one sprawling section can't crowd out the evidence — **but note
-`search_many` does not honour that**: round 1 caps at 4 and round 2 tops up with
-`citation_cap=k`, i.e. uncapped. An EB-1A query filled 12 slots with 7 distinct
-chapters.
+`per_citation_cap` (3) chunks per citation so one sprawling section can't crowd out the
+evidence — honoured in `search_many` as of finding 11, which also reserves
+`primary_share` (0.5) of the slate for the question's own words before spotted issues
+interleave for the rest.
+
+The REPL is stateful: `answer.Turn` history is condensed and carried into both the
+prompt and the retrieval query, budgeted against `num_ctx` (findings 13, 0).
+Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding` and
+`verify_dialogue`; all four report into the answer-check panel.
 
 ---
 
 ## Known gaps / next steps
 
 **Quality**
-- Model under-cites — often one inline `[n]` for a multi-claim answer. Prompt is firm
-  about this; may need few-shot examples or a post-check that flags uncited claims.
+- **README publishes an unreproducible number.** It states a flat 81% from a run that
+  today reproduces as 75%. For a project whose whole posture is honesty about limits, a
+  headline accuracy claim that moves a full check between samples needs to be a range
+  with its variance stated, or the lower bound. Not yet changed — it is a user-facing
+  claim and wants a deliberate decision, not a silent edit.
+- **Citation compliance is the open problem — start here.** Erratic across turns of one
+  conversation: 7, then 0, then 1 inline `[n]`. Finding 16 removed the corpus
+  contamination and finding 17 shortened SYSTEM and moved the rule to the tail, which
+  improved it without fixing it. Untried: few-shot examples, or a post-check that flags
+  uncited claims (`verify_grounding` flags only deontic sentences today).
 - `uscis-policy-updates` yields only 5 chunks from 2 PDFs. Plausible (policy alerts are
   short) but **unverified** — worth confirming pypdf isn't silently dropping text.
   `chunk_pdf` skips pages under 25 words *silently*, so a scanned PDF ingests as zero
@@ -242,12 +606,26 @@ chapters.
 - Retrieval does not guarantee the governing provision. An EB-1A question returned 12/12
   Policy Manual chunks and zero regulation. Embeddings won't reliably surface
   204.5(h)(3) from a narrative question; an intent → mandatory-citation table would.
-- **Evals don't cover the primary use case.** Four scenarios, 16 checks, all extraction
-  and dates. Nothing tests reasoning over the user's own documents against a legal
-  standard, which is what finding 10 is about. `--repeat` averages; runs are
-  deterministic at temperature 0 (verified 3/3 identical).
+- **Evals don't cover the primary use case, and are too coarse for the changes now
+  being made.** Four scenarios, 16 checks, all extraction and dates. Nothing tests
+  reasoning over the user's own documents against a legal standard (finding 10), and
+  nothing tests dialogue or citation compliance at all — the two things the last session
+  worked on. A one-check delta is inside the noise floor (finding 11) and now inside
+  run-to-run variance as well (finding 0d) — runs are **not** deterministic any more,
+  so `--repeat` is mandatory, not a convenience.
 - ~41 s per answer with qwen2.5:7b, machine stays usable throughout (5.06 GB headroom
   at peak, zero new swap). See finding 7.
+
+**Not built yet**
+- **Stage 4 of the reasoning/dialogue spec — the persisted situation model (`/facts`).**
+  Stages 1-3 (prompt split + answer-then-ask, conversation state, grounding check)
+  shipped 2026-08-25. Stage 4 extracts durable facts the user *states* — "I control the
+  entity", "my degree is CS" — into `~/.visa/me/`, shown and correctable, so the second
+  conversation starts knowing what the first established. Facts are the user's
+  assertions, never the model's inferences. Its three open questions are still open: how
+  many turns of history and summarised how; whether extraction runs every turn (latency)
+  or on an explicit `/remember`; whether the situation model is shown at session start or
+  only on `/facts`. Spec: `docs/superpowers/specs/2026-08-25-reasoning-and-dialogue-design.md`.
 
 **Not built yet (v2)**
 - `visa share` — bundle raw + index + manifest, refuse to include `~/.visa/me/`.

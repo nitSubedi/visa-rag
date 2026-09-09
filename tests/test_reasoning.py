@@ -101,3 +101,29 @@ def test_window_boundaries_are_exact():
     w = dates.post_completion_opt(dt.date(2027, 5, 14))[0]
     assert w.opens == dt.date(2027, 2, 13)
     assert w.closes == dt.date(2027, 7, 13)
+
+
+# ------------------------------------------------------------ issue-planning determinism
+
+
+def test_issue_planning_is_reproducible_by_default():
+    """Finding 0d: generation was pinned to temperature 0 but `plan_issues` was not,
+    so the issue list — and therefore the whole retrieval slate — was resampled on
+    every run. The same question scored 13/16 and 12/16 an hour apart. A legal
+    research tool that returns different sources for the same question twice is not
+    reproducible for the user either, not just for the evals."""
+    assert settings.plan_temperature == 0.0
+
+
+def test_plan_issues_uses_the_configured_temperature(monkeypatch):
+    """The temperature must be reachable from settings, not welded into the call."""
+    seen: list[float] = []
+
+    def fake_chat(messages, model=None, temperature=0.15):
+        seen.append(temperature)
+        return iter(["unemployment accrual\nemployer eligibility\n"])
+
+    monkeypatch.setattr(answer, "stream_chat", fake_chat)
+    monkeypatch.setattr(settings, "plan_temperature", 0.42)
+    answer.plan_issues("I was unemployed for 60 days", {"status": "F-1"})
+    assert seen == [0.42]
