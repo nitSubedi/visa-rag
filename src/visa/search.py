@@ -63,6 +63,18 @@ def tokenize(s: str) -> list[str]:
     return [t for t in (x.lower() for x in TOKEN.findall(s)) if t not in STOP]
 
 
+# A citation is a subsection; the unit a reader would call "the same law" is the
+# section. Capping only by citation lets one section arrive in pieces.
+SECTION = re.compile(r"^(\d+ (?:CFR|U\.S\.C\.) § [\d.]+)")
+
+
+def section_key(citation: str) -> str:
+    """The section a citation belongs to, or the citation itself when it has no
+    subsection structure (Policy Manual chapters are already the right unit)."""
+    m = SECTION.match(citation.strip())
+    return m.group(1) if m else citation.strip()
+
+
 @dataclass
 class Hit:
     row: Chunk
@@ -164,15 +176,20 @@ class Index:
             )
         hits.sort(key=lambda h: h.score, reverse=True)
 
-        # Keep at most 3 chunks per citation so one sprawling section cannot crowd out
-        # the rest of the evidence.
+        # Cap per citation so one sprawling subsection cannot crowd out the evidence,
+        # and per section so one law cannot do the same thing in pieces.
         seen: Counter[str] = Counter()
+        sections: Counter[str] = Counter()
         kept = []
         for h in hits:
             c = h.row.citation
-            if seen[c] >= 3:
+            sec = section_key(c)
+            if seen[c] >= settings.per_citation_cap:
+                continue
+            if sections[sec] >= settings.per_section_cap:
                 continue
             seen[c] += 1
+            sections[sec] += 1
             kept.append(h)
             if len(kept) >= k:
                 break
@@ -203,13 +220,18 @@ class Index:
         merged: list[Hit] = []
         seen: set[str] = set()
         per_citation: Counter[str] = Counter()
+        per_section: Counter[str] = Counter()
 
         def take(hit: Hit, citation_cap: int) -> bool:
             key = f"{hit.row.citation}|{hit.row.text[:80]}"
+            sec = section_key(hit.row.citation)
             if key in seen or per_citation[hit.row.citation] >= citation_cap:
+                return False
+            if per_section[sec] >= settings.per_section_cap:
                 return False
             seen.add(key)
             per_citation[hit.row.citation] += 1
+            per_section[sec] += 1
             merged.append(hit)
             return True
 

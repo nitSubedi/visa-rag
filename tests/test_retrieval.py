@@ -9,6 +9,7 @@ that actually decides the case — was crowded out to a single chunk.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,8 @@ QUESTION = (
     "I am a founding engineer of my startup, we are in pilot phase, what are the "
     "options for me after my one year opt ends?"
 )
+NIW_QUESTION = "What is the legal standard for an EB-2 national interest waiver?"
+SECTION_RE = re.compile(r"(\d+ (?:CFR|U\.S\.C\.) § [\d.]+)")
 ISSUES = [
     "F-1 OPT extension eligibility",
     "Post-Completion OPT employment duration",
@@ -77,3 +80,32 @@ def test_founder_guidance_survives_decomposition(idx: Index) -> None:
     merged = idx.search_many([QUESTION, *ISSUES])
     n = sum(1 for h in merged if h.row.shard == "sevp-stem-opt")
     assert n >= 2, f"founder/self-employment guidance reduced to {n} chunks"
+
+
+def test_no_single_section_dominates_the_slate(idx: Index) -> None:
+    """Splitting enumerated provisions let one CFR *section* quietly take 5 of 12
+    slots on the NIW question: 204.12(c) x3 plus (g) and (d), each subsection inside
+    the per-citation cap of 3 while the section as a whole owned 42% of the evidence.
+    204.12 is the national interest waiver for *physicians*; the question was general.
+    The model was handed five chunks of the wrong standard and one carrying Dhanasar,
+    and answered from the wrong one — niw_standard fell 4/4 to 2/4.
+
+    The per-citation cap cannot see this, because after a split the fragments share a
+    citation and the sibling subsections have different ones."""
+    merged = idx.search_many([NIW_QUESTION])
+    counts: dict[str, int] = {}
+    for h in merged:
+        m = SECTION_RE.search(h.row.citation)
+        if m:
+            counts[m.group(1)] = counts.get(m.group(1), 0) + 1
+    if counts:
+        worst_sec = max(counts, key=lambda s: counts[s])
+        assert counts[worst_sec] <= settings.per_section_cap, (
+            f"{worst_sec} took {counts[worst_sec]} of {len(merged)} slots"
+        )
+
+
+def test_the_section_cap_does_not_starve_a_split_provision(idx: Index) -> None:
+    """The cap must still leave room for several criteria of one enumerated
+    provision — splitting 204.5(h) exists precisely so more than one can be cited."""
+    assert settings.per_section_cap >= settings.per_citation_cap

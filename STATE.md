@@ -440,6 +440,59 @@ That arithmetic is only reachable if every repeat produced an identical answer, 
 is the combination finding 0d proved impossible this morning (4/6 with 3 flagged).
 **The instrument is deterministic again.**
 
+**10f. The regression was a per-*section* crowding bug, and the tier floor 10e
+proposed would not have fixed it.** Checked before building: the chunk carrying all
+three *Dhanasar* prongs is in the slate on **both** corpora — position 9 pre-split,
+10 post-split. Nothing was displaced. Only **4 chunks in the whole corpus** carry all
+three prongs, all in `USCIS PM Vol 6, Pt F, Ch 5`, and exactly one reaches the slate
+either way. Tier 4 falling 5 slots to 3 removed nothing that mattered, and a floor of 2
+would never have fired.
+
+What actually changed is one *section*:
+
+```
+PRE-SPLIT   8 CFR 204.12: 2 slots    regulation 3 of 12
+SPLIT       8 CFR 204.12: 5 slots    regulation 5 of 12
+            (c) x3, (g) x1, (d) x1   <- every subsection inside the cap of 3
+```
+
+**8 CFR 204.12 is the national interest waiver for *physicians*.** On a general NIW
+question the model received five chunks of the wrong standard against one carrying
+*Dhanasar*, and answered from the wrong one. `per_citation_cap` is blind to this by
+construction: after a split the fragments share a citation while sibling subsections
+carry different ones, so one law arrives in pieces and no counter ever trips.
+
+Fixed with `settings.per_section_cap` (default 4) keyed on `search.section_key`, applied
+in both `search` and `search_many`. Kept **above** `per_citation_cap` on purpose — a
+lower value would starve `204.5(h)`, which is the whole reason B exists. Locked by
+`tests/test_retrieval.py::test_no_single_section_dominates_the_slate`.
+
+Result: `niw_standard` 2/4 -> **4/4**, suite 10/16 -> **12/16**, parity with main.
+
+**10g. B is now neutral, not positive — and its own goal is still unmet.** With the
+section cap the branch scores 12/16 against main's 12/16, differing only in
+composition (+1 `stem_self_employment`, -1 `travel_on_opt`).
+
+That -1 is not a retrieval loss. `timely_filed`'s supporting evidence is **4 of 12 slate
+chunks on both corpora**, and `sept_30` is carried by **zero** slate chunks on either —
+it comes from the computed-deadline block, and per finding 8 the evals bypass the CLI
+that prints it. The slates differ by a single chunk at position 9 vs 12. A check flipped
+whose evidence never moved: a generation knife-edge, and finding 11's warning that a
+one-check delta sits below this instrument's resolution — still true now that runs are
+deterministic.
+
+Meanwhile B's actual purpose is **still 2 of 5 probes**. The three that fail are the ones
+naming a criterion in its own regulatory wording, and the section cap does not touch
+their cause: criterion chunks sit at cosine 0.61 / dense rank 60-145 and lose to Policy
+Manual commentary that discusses them at length. That is the tier-weight problem in 10d,
+untouched.
+
+**So B stays parked.** It costs +30% corpus size (8,305 -> 10,779 chunks) for a benefit
+not yet realised, which is the wrong trade for a tool whose next milestone is running
+cool enough to ship. It merges when the ranking fix lands and the EB-1A probes actually
+pass. The section cap is independent of all that and can go to main on its own — where
+it is a no-op guard, since 204.12 takes only 2 slots on the unsplit corpus.
+
 **11. Retrieval must reserve a share of the slate for the question's own words.**
 `search_many` interleaved round-robin, so with six spotted issues the user's actual
 question held a *seventh* of the slate. A founder asking about life after OPT got L-1

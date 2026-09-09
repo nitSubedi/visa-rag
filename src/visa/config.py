@@ -45,6 +45,14 @@ class Settings(BaseSettings):
     # the slate. Documented as 3 but implemented as 4-then-uncapped, which is how an
     # EB-1A query came to fill 12 slots with 7 distinct chapters.
     per_citation_cap: int = 3
+    # And at most this many per *section*, which the citation cap cannot see. After
+    # enumerated provisions are split, fragments share a citation while sibling
+    # subsections carry different ones — so 204.12(c) x3 plus (g) and (d) each stayed
+    # inside the citation cap while section 204.12 took 5 of 12 slots on a general NIW
+    # question. 204.12 is the waiver for *physicians*: the model got five chunks of the
+    # wrong standard against one carrying Dhanasar, and answered from the wrong one.
+    # Kept above per_citation_cap so a split provision can still cite several criteria.
+    per_section_cap: int = 4
     # 12 chunks of legal text is ~8.3k tokens; at the old 8192 the prompt overflowed
     # and silently dropped whatever came first — which was the computed-deadline
     # block. Anything set here must leave room for the sources plus the answer.
