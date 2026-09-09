@@ -109,3 +109,27 @@ def test_the_section_cap_does_not_starve_a_split_provision(idx: Index) -> None:
     """The cap must still leave room for several criteria of one enumerated
     provision — splitting 204.5(h) exists precisely so more than one can be cited."""
     assert settings.per_section_cap >= settings.per_citation_cap
+
+
+CRITERION_PROBES = [
+    ("original contributions of major significance to the field", "204.5(h)"),
+    ("commanded a high salary compared to others in the field", "204.5(h)"),
+]
+
+
+@pytest.mark.parametrize(("query", "citation"), CRITERION_PROBES)
+def test_a_criterion_is_retrievable_by_its_own_wording(idx, query, citation) -> None:
+    """The governing provision must be findable by the words the law itself uses.
+
+    Splitting 204.5(h) made each criterion its own chunk but carried 120 tokens of
+    shared stem into every piece, so ~35 tokens of distinctive text were embedded
+    alongside ~120 of preamble. Measured cost: 0.11-0.16 cosine. Criterion (v) sat at
+    0.631 against a Policy Manual chunk at 0.699 and never surfaced; embedded alone it
+    scores 0.744 and wins. The stem still has to be *served* — a criterion severed
+    from "at least three of the following" reads as a requirement — so what changes is
+    what gets embedded, not what the model is shown."""
+    hits = idx.search(query, k=8)
+    assert any(citation in h.row.citation for h in hits), (
+        f"{query!r} returned no {citation}: "
+        + ", ".join(f"{h.row.citation}@{h.cosine:.2f}" for h in hits[:4])
+    )

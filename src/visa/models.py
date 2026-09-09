@@ -24,6 +24,12 @@ class Chunk(BaseModel):
     tier: int
     kind: str = ""
     source_title: str = ""
+    # What to embed, when that differs from what to serve. A split criterion must be
+    # *shown* with the stem that governs it — severed from "at least three of the
+    # following" it reads as a requirement — but embedding ~35 tokens of distinctive
+    # text alongside ~120 of shared preamble costs 0.11-0.16 cosine and buries the
+    # provision. Build-time only: vectors are computed from it and it is not persisted.
+    embed_text: str = ""
 
 
 class SourceFile(BaseModel):

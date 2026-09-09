@@ -47,7 +47,7 @@ def _index_source(src: Source, refetch: bool = True) -> int:
         c.print(f"  [yellow]no chunks produced for {src.slug}[/yellow]")
         return 0
     with c.status(f"embedding {len(rows):,} chunks…"):
-        vecs = embed.embed([r.text for r in rows])
+        vecs = embed.embed([r.embed_text or r.text for r in rows])
     extra: dict[str, object] = {"private": src.private} if src.private else {}
     if not (src.dir / "manifest.json").exists():
         (src.dir).mkdir(parents=True, exist_ok=True)
@@ -193,7 +193,7 @@ def _reindex_private() -> None:
         c.print("[dim]no personal documents yet[/dim]")
         return
     with c.status(f"embedding {len(rows)} personal chunks…"):
-        vecs = embed.embed([r.text for r in rows])
+        vecs = embed.embed([r.embed_text or r.text for r in rows])
     PRIVATE.dir.mkdir(parents=True, exist_ok=True)
     (PRIVATE.dir / "manifest.json").write_text(
         json.dumps(

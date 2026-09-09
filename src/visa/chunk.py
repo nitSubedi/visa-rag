@@ -36,7 +36,7 @@ def ntokens(s: str) -> int:
 
 def _pack(
     paras: list[str], budget: int | None = None, overlap: int | None = None
-) -> list[str]:
+) -> list[tuple[str, str]]:
     """Group paragraphs into token-budgeted pieces, never splitting mid-paragraph
     unless a single paragraph exceeds the budget."""
     budget = budget or settings.chunk_tokens
@@ -87,16 +87,21 @@ ENUM_MIN_TOKENS = 400  # below this the packed embedding is still sharp enough
 ENUM_STEM_TOKENS = 120  # enough to carry the gate sentence that governs the items
 
 
-def _split_enumerated(text: str) -> list[str]:
-    """Split an enumerated provision into its stem plus one piece per item, each piece
-    still carrying the stem's tail. Returns [text] unchanged when the rule misses."""
+def _split_enumerated(text: str) -> list[tuple[str, str]]:
+    """Split an enumerated provision into its stem plus one piece per item.
+
+    Returns (served, embedded) pairs. Each item is *served* with the stem's tail so it
+    still reads as one of N alternatives, but *embedded* alone: the shared preamble is
+    the same in every piece and dominates the vector, which is what kept criterion (v)
+    at 0.631 against a Policy Manual chunk at 0.699 despite being the governing law.
+    """
     marks = list(ENUM_ITEM.finditer(text))
     if len(marks) < ENUM_MIN_ITEMS or ntokens(text) < ENUM_MIN_TOKENS:
-        return [text]
+        return [(text, text)]
 
     stem = text[: marks[0].start()].rstrip()
     if not stem.strip():
-        return [text]
+        return [(text, text)]
 
     # The citation header is the chunk's first line; every piece needs it back.
     head, _, body = stem.partition("\n")
@@ -105,11 +110,11 @@ def _split_enumerated(text: str) -> list[str]:
     lead = " ".join(x for x in (head, " ".join(body.split()[-ENUM_STEM_TOKENS:])) if x)
 
     bounds = [m.start() for m in marks] + [len(text)]
-    out = [stem]
+    out = [(stem, stem)]
     for i in range(len(marks)):
         item = text[bounds[i] : bounds[i + 1]].strip()
         if item:
-            out.append(f"{lead.strip()} {item}".strip())
+            out.append((f"{lead.strip()} {item}".strip(), item))
     return out
 
 
@@ -130,11 +135,24 @@ def _split_sentences(text: str, budget: int) -> list[str]:
     return out
 
 
+def _embed_override(served: str, embedded: str) -> str:
+    """Empty when a piece is embedded exactly as served, so anything the enumerated
+    split did not touch keeps its existing vector unchanged."""
+    return "" if embedded == served else embedded
+
+
 def _mk(
-    text: str, citation: str, title: str, src: Source, path: str = "", url: str = ""
+    text: str,
+    citation: str,
+    title: str,
+    src: Source,
+    path: str = "",
+    url: str = "",
+    embed_text: str = "",
 ) -> Chunk:
     return Chunk(
         text=text,
+        embed_text=embed_text,
         citation=citation,
         title=title,
         shard=src.slug,
@@ -289,7 +307,7 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
                 cite = f"{title_no} CFR § {sec}" + (f"({letter})" if letter else "")
                 sub = toc_head.get(letter, "")
                 label = f"{heading} — {sub}" if sub else heading
-                for piece in _pack(ps):
+                for piece, emb in _pack(ps):
                     out.append(
                         _mk(
                             f"{cite} — {label}\n{piece}",
@@ -298,6 +316,7 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
                             src,
                             path=f"Title {title_no} > Part {part} > § {sec}"
                             + (f"({letter})" if letter else ""),
+                            embed_text=_embed_override(piece, emb),
                         )
                     )
     return out
@@ -351,7 +370,7 @@ def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
             if ch:
                 cite += f", Ch {ch.group(1).rstrip('-')}"
             paras = [x for x in re.split(r"(?<=[.])\s+(?=[A-Z0-9])", body) if x.strip()]
-            for piece in _pack(paras):
+            for piece, emb in _pack(paras):
                 out.append(
                     _mk(
                         f"{cite} — {chap}\n{piece}",
@@ -359,6 +378,7 @@ def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
                         chap,
                         src,
                         path=" > ".join(x for x in (vol, part, chap) if x),
+                        embed_text=_embed_override(piece, emb),
                     )
                 )
     return out
@@ -384,7 +404,7 @@ def chunk_uscode(paths: list[Path], src: Source) -> list[Chunk]:
                 continue
             cite = f"8 U.S.C. {num_s}".strip()
             paras = [x for x in re.split(r"(?<=[.;])\s+(?=\()", body) if x.strip()]
-            for piece in _pack(paras or [body]):
+            for piece, emb in _pack(paras or [body]):
                 out.append(
                     _mk(
                         f"{cite} — {head_s}\n{piece}",
@@ -392,6 +412,7 @@ def chunk_uscode(paths: list[Path], src: Source) -> list[Chunk]:
                         head_s,
                         src,
                         path=f"8 U.S.C. {num_s}",
+                        embed_text=_embed_override(piece, emb),
                     )
                 )
     return out
@@ -421,8 +442,19 @@ def chunk_pdf(paths: list[Path], src: Source) -> list[Chunk]:
             if len(text.split()) < 25:
                 continue
             cite = f"{src.title} (p. {pno})"
-            for piece in _pack([x for x in re.split(r"(?<=[.])\s+", text) if x.strip()]):
-                out.append(_mk(f"{cite}\n{piece}", cite, p.stem, src, path=p.name))
+            for piece, emb in _pack(
+                [x for x in re.split(r"(?<=[.])\s+", text) if x.strip()]
+            ):
+                out.append(
+                    _mk(
+                        f"{cite}\n{piece}",
+                        cite,
+                        p.stem,
+                        src,
+                        path=p.name,
+                        embed_text=_embed_override(piece, emb),
+                    )
+                )
     return out
 
 
@@ -444,8 +476,19 @@ def chunk_text(paths: list[Path], src: Source) -> list[Chunk]:
         body = clean(body)
         if not body:
             continue
-        for piece in _pack([x for x in re.split(r"(?<=[.])\s+", body) if x.strip()]):
-            out.append(_mk(f"{p.name}\n{piece}", p.name, p.stem, src, path=p.name))
+        for piece, emb in _pack(
+            [x for x in re.split(r"(?<=[.])\s+", body) if x.strip()]
+        ):
+            out.append(
+                _mk(
+                    f"{p.name}\n{piece}",
+                    p.name,
+                    p.stem,
+                    src,
+                    path=p.name,
+                    embed_text=_embed_override(piece, emb),
+                )
+            )
     return out
 
 

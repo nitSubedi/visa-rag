@@ -379,8 +379,12 @@ target  (dense 60, lex 2):  1/121 + 1/63  = 0.0241  x 0.97 (regulation) = 0.0234
 PM      (dense  0, lex 0):  1/61  + 1/61  = 0.0328  x 0.92 (policy)     = 0.0302
 ```
 
-**Precedence is encoded as a 5% score multiplier, and 5% cannot express "the binding
-regulation outranks commentary quoting it."** In a legal research tool precedence is not
+**Precedence is encoded as a 5% score multiplier, which cannot close a 60-rank gap.**
+(Originally written here as "5% cannot express that the binding regulation outranks
+commentary quoting it" — too strong, and 10h disproves it. The weight is sufficient when
+ranks are close: criterion (ii) now takes its slot at 0.0301 against a Policy Manual
+chunk at 0.0299, a 0.7% margin that exists only because of the tier weight. The defect
+was the rank, not the weight.) In a legal research tool precedence is not
 a tiebreaker; it is an ordering principle, and `TIERS` currently makes it a nudge. This
 is the same class of error as finding 11, where the question's own words were left to
 compete on score instead of being given reserved slots.
@@ -492,6 +496,49 @@ not yet realised, which is the wrong trade for a tool whose next milestone is ru
 cool enough to ship. It merges when the ranking fix lands and the EB-1A probes actually
 pass. The section cap is independent of all that and can go to main on its own — where
 it is a no-op guard, since 204.12 takes only 2 slots on the unsplit corpus.
+
+**10h. The criteria were unfindable because the wrong text was being embedded. B is
+now net positive and unparks.** The fix is neither of the two things 10d and 10e
+proposed. Measured cost of the stem each split piece carries:
+
+```
+                    as indexed   item+gate   item alone   competitor
+(v) contributions      0.631       0.717       0.744        0.699
+(ii) membership        0.642       0.743       0.775        0.804
+(ix) salary            0.628       0.705       0.786        0.734
+```
+
+~35 tokens of distinctive law were being embedded alongside ~120 of preamble shared by
+every sibling piece, costing **0.11-0.16 cosine**. So `Chunk.embed_text` now decouples
+what is embedded from what is served: a criterion is *shown* with the stem that governs
+it — severed from "at least three of the following" it reads as a requirement — and
+*embedded* alone. `_embed_override` returns empty whenever a piece is embedded exactly
+as served, so every chunk the enumerated split did not touch keeps its vector unchanged.
+Build-time only; `embed_text` is never persisted, so `store.COLUMNS` is untouched.
+
+**Retrieval probes: 5 of 5**, from 2 of 5 after the split alone and 0 of 5 before it.
+`214.2(o)` — the O-1 nonimmigrant provision that used to win every EB-1A query — now
+returns 0 hits on the two flagship probes.
+
+```
+                     stem  niw  opt  travel   total
+main (A + cap)        3/6  4/4  3/3   2/3     12/16
+branch (+ B + embed)  4/6  4/4  3/3   2/3     13/16
+```
+
+**`everify` passes for the first time today.** It is one of the two checks the
+2026-08-25 reasoning spec was written to fix and had failed in every prior run — fixed
+here by retrieval, not by prompt work.
+
+Note the mechanism, because it was mispredicted twice. Criterion (ii) still *loses on
+cosine* (0.715 against 0.804) and wins anyway: dense rank moved **145 -> 3**, and with
+BM25 rank 4 the fused score plus the tier weight takes the slot. Predicting from cosine
+alone was wrong in a hybrid system.
+
+One behaviour to watch: a general EB-1A query now returns **1** chunk of `204.5(h)`
+where it returned 2-3, because sharper per-criterion vectors match a broad query less
+often. Correct, but an answer needing the stem plus several criteria at once has less to
+work with. Nothing in the current evals exercises that.
 
 **11. Retrieval must reserve a share of the slate for the question's own words.**
 `search_many` interleaved round-robin, so with six spotted issues the user's actual
