@@ -75,3 +75,67 @@ def test_entries_report_their_own_age() -> None:
     for e in register.load():
         assert isinstance(e.checked, dt.date)
         assert e.age_days >= 0
+
+
+# --- the note has to reach the prompt, and survive the budget ------------------
+
+
+def test_the_not_in_force_note_reaches_the_prompt() -> None:
+    """A warning the model never sees cannot stop it asserting enjoined law."""
+    from visa import answer
+    from visa.models import Chunk
+
+    class _Hit:
+        def __init__(self, citation: str):
+            self.row = Chunk(text="word " * 300, citation=citation, tier=2, shard="t")
+            self.cosine = 0.8
+
+    msgs = answer.build_prompt("How long am I admitted for?", [_Hit("8 CFR § 214.2(f)")])
+    body = msgs[1]["content"]
+    assert "NOT IN FORCE" in body
+    assert "1:26-cv-13799" in body
+
+
+def test_the_note_sits_with_the_facts_not_the_sources() -> None:
+    """It does not compete with passages, it overrides them — so it belongs in the
+    tail, past SOURCES and un-truncatable, like the computed deadlines."""
+    from visa import answer
+    from visa.models import Chunk
+
+    class _Hit:
+        def __init__(self, citation: str):
+            self.row = Chunk(text="word " * 300, citation=citation, tier=2, shard="t")
+            self.cosine = 0.8
+
+    body = answer.build_prompt("q", [_Hit("8 CFR § 214.2(f)")])[1]["content"]
+    assert body.index("SOURCES:") < body.index("NOT IN FORCE")
+    assert body.index("NOT IN FORCE") < body.index("QUESTION:")
+
+
+def test_the_note_survives_a_full_source_slate() -> None:
+    """Finding 0 again: anything added to the prompt must be budgeted, or it silently
+    pushes the critical blocks out of context."""
+    from visa import answer
+    from visa.models import Chunk
+
+    class _Hit:
+        def __init__(self, citation: str):
+            self.row = Chunk(text="word " * 900, citation=citation, tier=2, shard="t")
+            self.cosine = 0.8
+
+    hits = [_Hit("8 CFR § 214.2(f)")] + [_Hit(f"8 CFR § 100.{i}") for i in range(40)]
+    body = answer.build_prompt("q", hits)[1]["content"]
+    assert "NOT IN FORCE" in body
+
+
+def test_an_unaffected_question_gets_no_note() -> None:
+    from visa import answer
+    from visa.models import Chunk
+
+    class _Hit:
+        def __init__(self, citation: str):
+            self.row = Chunk(text="word " * 300, citation=citation, tier=2, shard="t")
+            self.cosine = 0.8
+
+    body = answer.build_prompt("q", [_Hit("8 CFR § 204.5(h)")])[1]["content"]
+    assert "NOT IN FORCE" not in body

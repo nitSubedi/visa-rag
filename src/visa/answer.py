@@ -9,7 +9,7 @@ import urllib.request
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
-from . import dates, profile
+from . import dates, profile, register
 from .config import settings, tier_label
 from .search import Hit, Index, passes_gate
 
@@ -154,6 +154,11 @@ def build_prompt(
         facts.append(p)
     if d := dates.render(prof):
         facts.append(d)
+    # A provision can be in the corpus and suspended by a court. This does not compete
+    # with the passages — it overrides them — so it goes in the tail with the facts,
+    # where it is un-truncatable and best attended, never in SOURCES.
+    if n := register.note_for_prompt(register.affecting([h.row.citation for h in hits])):
+        facts.append(n)
     # History sits above the facts, never below: profile and deadlines must stay
     # closest to the question, and history is the part that may be dropped.
     parts = [render_history(turns or []), *facts, f"QUESTION: {question}"]
