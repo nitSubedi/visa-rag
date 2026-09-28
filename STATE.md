@@ -51,7 +51,7 @@ Known gaps for the decision it forces.
 Three further things to read off this, none of them the headline:
 
 **The motivating failure is unfixed.** `self_employment` and `everify` are exactly what
-the reasoning spec was written to fix (finding 12), and they miss in both runs. Stages
+the reasoning spec was written to fix (finding 19), and they miss in both runs. Stages
 1-3 changed the behaviour of a real conversation; they did not move this scenario. At
 `--repeat 5` `unemployment_cap` joins them, so 4 of that scenario's 6 checks are now
 unstable.
@@ -71,7 +71,7 @@ checks pass in some runs and fail in others.
 
 Two more things to read off this rather than the headline. **The motivating failure is
 unfixed:** `self_employment` and `everify` are exactly what the reasoning spec was
-written to fix (finding 12), and they still miss. Stages 1-3 changed the behaviour of a
+written to fix (finding 19), and they still miss. Stages 1-3 changed the behaviour of a
 real conversation; they did not move this scenario. **And the runs are no longer
 deterministic** — see finding 0d, which is the more consequential of the two.
 
@@ -652,7 +652,7 @@ examples or a post-check that flags uncited claims are the untried options.
 
 ---
 
-**11. The corpus can be legally current and operationally wrong, with every freshness
+**18. The corpus can be legally current and operationally wrong, with every freshness
 indicator green. This is the most dangerous failure mode found so far.**
 
 The 2026-09-28 refresh pulled 8 CFR edition **2026-09-18** and `test_citations.py`
@@ -703,7 +703,7 @@ says so.
 **A citation test failing after `visa refresh` is the freshness mechanism working.** Read
 the diff, then check whether the change is in force before acting on it.
 
-**12. A warning in the prompt does not stop a 7b quoting enjoined law. Suspended
+**19. A warning in the prompt does not stop a 7b quoting enjoined law. Suspended
 provisions have to leave the slate, not be annotated in it.**
 
 Measured 2026-09-28 on `opt_filing_window`, which went 3/3 this morning to **0/3** after
@@ -750,10 +750,10 @@ model. Note the CLI is less exposed than the evals suggest: it prints Python's d
 directly, runs `verify_dates`, and shows the NOT IN FORCE banner. The prose is still
 wrong, and the prose is what people read.
 
-**Do not read finding 11's register as sufficient.** It makes the situation visible. It
+**Do not read finding 18's register as sufficient.** It makes the situation visible. It
 does not make the answer right.
 
-**13. Withholding costs evidence; backfilling it back did not measurably help; and
+**20. Withholding costs evidence; backfilling it back did not measurably help; and
 half the eval's "failures" are things the user already sees.** Three results from
 2026-09-28, in the order they were measured.
 
@@ -799,7 +799,7 @@ The instrument could score prose ∪ computed block, which is what the user actu
 reads. Deliberately not changed: it would inflate scores and stop measuring whether the
 model is doing its job. Reporting both numbers is the honest version, and it is not built.
 
-**14. `travel_on_opt`'s profile contradicted its own question.** The question states a
+**21. `travel_on_opt`'s profile contradicted its own question.** The question states a
 cap-subject petition was filed, but the profile omitted `h1b_filed`. Finding 15 gated
 cap-gap on that field because it is not derivable from status alone, so no cap-gap window
 was ever computed and the model was scored on deriving September 30 unaided — precisely

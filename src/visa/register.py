@@ -52,7 +52,7 @@ def _mentions(text: str, path: list[str], depth: int) -> bool:
     The corpus cites at paragraph level — "8 CFR § 214.2(f)" is the entire F-1
     paragraph — so the citation cannot say which sub-paragraph a chunk's slice of text
     came from. Matching on the citation alone therefore condemned filing rules that
-    were never enjoined (finding 12). The enumerator in the text is what distinguishes
+    were never enjoined (finding 19). The enumerator in the text is what distinguishes
     them, so look for it the same way the chunker recognises one: a marker followed by
     the start of a sentence.
     """

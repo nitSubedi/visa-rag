@@ -49,7 +49,7 @@ CASES = [
         # marker tracks the fetched text — it is not a statement about operative law.
         # And the operative law is the opposite: the fixed-period rule is enjoined
         # nationwide (Presidents' Alliance v. DHS, D. Mass., 2026-09-14) and duration of
-        # status still governs. See STATE.md finding 11; the eCFR does not encode
+        # status still governs. See STATE.md finding 18; the eCFR does not encode
         # injunctions, so the corpus being current does not mean it is in force.
         ["period of stay", "practical training", "60 day"],
         ["specialty occupation", "representatives of information media"],

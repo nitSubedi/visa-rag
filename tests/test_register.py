@@ -1,7 +1,7 @@
 """Matching retrieved citations against provisions that are not in force.
 
 The eCFR publishes amended text and says nothing about litigation, so the corpus can be
-current and wrong at once with every freshness signal green (STATE.md finding 11). The
+current and wrong at once with every freshness signal green (STATE.md finding 18). The
 register is the only thing that catches it, and the matching has to be exact about
 boundaries: a warning on the wrong provision trains people to ignore warnings.
 """
@@ -157,7 +157,7 @@ F4_TEXT = (
 def test_text_decides_which_part_of_a_paragraph_is_suspended() -> None:
     """The corpus cites at paragraph level — "8 CFR § 214.2(f)" is the whole F-1
     paragraph — while the register names sub-paragraphs. Matching on the citation alone
-    condemned filing rules that were never enjoined (finding 12). The chunk text is what
+    condemned filing rules that were never enjoined (finding 19). The chunk text is what
     distinguishes them."""
     assert register.covers("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)", F5_TEXT)
     assert not register.covers("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)", F4_TEXT)
@@ -189,7 +189,7 @@ def _hit(citation: str, text: str):
 
 
 def test_suspended_text_never_reaches_the_prompt() -> None:
-    """Finding 12: a 7b handed suspended law plus a warning quotes the law. 228 tokens
+    """Finding 19: a 7b handed suspended law plus a warning quotes the law. 228 tokens
     of warning lost to 8,000 tokens of on-topic passage. Withhold the text instead."""
     from visa import answer
 

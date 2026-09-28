@@ -177,7 +177,7 @@ def build_prompt(
     for i, h in enumerate(hits, 1):
         r = h.row
         head = f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})"
-        # Withhold the text of a suspended passage rather than annotate it. Finding 12:
+        # Withhold the text of a suspended passage rather than annotate it. Finding 19:
         # a 7b handed the enjoined rule plus a warning quoted the rule, invented a filing
         # date from it, and ignored the correct computed dates sitting in the tail — 228
         # tokens of caution lost to ~8,000 tokens of on-topic passage. The slot stays so
