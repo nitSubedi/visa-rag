@@ -143,7 +143,21 @@ def _path() -> Path:
     return settings.source_defs / "injunctions.toml"
 
 
+_CACHE: list[Entry] | None = None
+
+
+def clear_cache() -> None:
+    """Tests and `visa refresh` change the register underneath a live process."""
+    global _CACHE
+    _CACHE = None
+
+
 def load(path: Path | None = None) -> list[Entry]:
+    """Cached: search() consults the register per hit and search_many calls search once
+    per issue, so an uncached read would reopen the file dozens of times per answer."""
+    global _CACHE
+    if path is None and _CACHE is not None:
+        return _CACHE
     p = path or _path()
     if not p.exists():
         return []
@@ -166,6 +180,8 @@ def load(path: Path | None = None) -> list[Entry]:
                 checked=e["checked"],
             )
         )
+    if path is None:
+        _CACHE = out
     return out
 
 

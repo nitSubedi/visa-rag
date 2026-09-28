@@ -56,11 +56,28 @@ def test_question_keeps_its_reserved_share(idx: Index) -> None:
     )
 
 
+def _usable(hits) -> int:
+    """Passages the model can actually read. A suspended provision is returned so the
+    banner and `/sources N` can show it, but its text is withheld from the prompt, so
+    counting it as evidence overstates what the answer had to work with."""
+    from visa import register
+
+    entries = register.load()
+    return sum(
+        1 for h in hits if not register.suspended(h.row.citation, h.row.text, entries)
+    )
+
+
 def test_merge_is_never_shorter_than_a_single_pass(idx: Index) -> None:
-    """An early version returned fewer sources than one plain search."""
+    """An early version returned fewer sources than one plain search.
+
+    Compared on *usable* passages rather than raw length: once withheld slots are
+    backfilled the two paths return different numbers of suspended extras, and raw
+    length stopped meaning "amount of evidence". The invariant being protected is that
+    decomposition must not starve the slate, which is a statement about evidence."""
     single = idx.search(QUESTION)
     merged = idx.search_many([QUESTION, *ISSUES])
-    assert len(merged) >= len(single)
+    assert _usable(merged) >= _usable(single)
 
 
 def test_per_citation_cap_is_honoured(idx: Index) -> None:

@@ -236,3 +236,28 @@ def test_suspended_text_cannot_support_a_date() -> None:
     problems = answer.verify_dates("you may file by 2026-12-14.", prof=prof, hits=hits)
     assert problems, "a date supported only by suspended text must still be flagged"
     assert "2026-12-14" in problems[0]
+
+
+def test_withheld_chunks_do_not_consume_the_evidence_budget() -> None:
+    """A withheld slot contributes no text, so counting it against top_k shrinks the
+    slate. Measured: opt_filing_window spent 4 of 12 slots on withheld passages and
+    dropped from 3/3 to 1/3, while niw_standard withheld nothing and held 4/4. The
+    suspended passages must still be *returned* — the banner and /sources N need them —
+    they just must not crowd out usable law."""
+    from pathlib import Path
+
+    from visa.config import settings
+    from visa.search import Index
+
+    if not (Path.home() / ".visa" / "corpus" / "8-cfr" / "vectors.npy").exists():
+        pytest.skip("corpus not indexed")
+    idx = Index.load()
+    entries = register.load()
+    hits = idx.search("When exactly can I file my I-765 for post-completion OPT?")
+    usable = [
+        h for h in hits if not register.suspended(h.row.citation, h.row.text, entries)
+    ]
+    assert len(usable) >= settings.top_k, (
+        f"only {len(usable)} usable of {len(hits)} returned; "
+        f"{len(hits) - len(usable)} withheld slots crowded out real law"
+    )

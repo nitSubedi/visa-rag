@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from . import register
 from .config import settings, tier_weight
 from .embed import embed_query
 from .models import Chunk
@@ -181,6 +182,7 @@ class Index:
         seen: Counter[str] = Counter()
         sections: Counter[str] = Counter()
         kept = []
+        usable = 0
         for h in hits:
             c = h.row.citation
             sec = section_key(c)
@@ -191,7 +193,14 @@ class Index:
             seen[c] += 1
             sections[sec] += 1
             kept.append(h)
-            if len(kept) >= k:
+            # A suspended passage is returned — the banner and `/sources N` need it —
+            # but its text is withheld from the prompt, so charging it a slot shrinks
+            # the evidence. Measured: an OPT filing question spent 4 of 12 slots on
+            # withheld passages and lost two checks; the scenario that withheld nothing
+            # lost none.
+            if not register.suspended(h.row.citation, h.row.text):
+                usable += 1
+            if usable >= k:
                 break
         return kept
 
@@ -222,7 +231,14 @@ class Index:
         per_citation: Counter[str] = Counter()
         per_section: Counter[str] = Counter()
 
+        # A suspended passage is still returned — the banner and `/sources N` need it —
+        # but its text is withheld from the prompt, so it must not count toward the
+        # budget. `usable` is what the model can actually read, and every round below
+        # measures progress by it rather than by len(merged).
+        usable = 0
+
         def take(hit: Hit, citation_cap: int) -> bool:
+            nonlocal usable
             key = f"{hit.row.citation}|{hit.row.text[:80]}"
             sec = section_key(hit.row.citation)
             if key in seen or per_citation[hit.row.citation] >= citation_cap:
@@ -233,6 +249,8 @@ class Index:
             per_citation[hit.row.citation] += 1
             per_section[sec] += 1
             merged.append(hit)
+            if not register.suspended(hit.row.citation, hit.row.text):
+                usable += 1
             return True
 
         cap = settings.per_citation_cap
@@ -240,7 +258,7 @@ class Index:
         # Round 0: the question's own best passages, up to its reserved floor.
         floor = min(k, max(1, round(k * settings.primary_share))) if ranked else 0
         for hit in ranked[0] if ranked else []:
-            if len(merged) >= floor:
+            if usable >= floor:
                 break
             take(hit, cap)
 
@@ -248,14 +266,14 @@ class Index:
         # capped per provision so one broad chapter cannot swallow the budget.
         for rank in range(k):
             for hits in ranked:
-                if rank < len(hits) and take(hits[rank], cap) and len(merged) >= k:
+                if rank < len(hits) and take(hits[rank], cap) and usable >= k:
                     return merged
 
         # Round 2: top up without the diversity cap rather than return short — an
         # earlier version returned *fewer* sources than a single pass.
         for hits in ranked:
             for hit in hits:
-                if take(hit, k) and len(merged) >= k:
+                if take(hit, k) and usable >= k:
                     return merged
         return merged
 

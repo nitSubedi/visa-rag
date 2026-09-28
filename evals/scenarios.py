@@ -118,6 +118,12 @@ SCENARIOS: list[Scenario] = [
             "status": "F-1",
             "opt_start_date": "2026-03-01",
             "opt_end_date": "2027-02-28",
+            # The question states a cap-subject petition was filed. cap_gap is gated on
+            # this field (finding 15: it is not derivable from status alone), so omitting
+            # it left the profile contradicting its own question — no cap-gap window was
+            # computed, and the model was scored on deriving September 30 unaided, which
+            # is exactly what the deterministic-dates design exists to prevent.
+            "h1b_filed": True,
         },
         question=(
             "My H-1B was selected in the lottery and my employer filed a cap-subject "

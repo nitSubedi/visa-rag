@@ -753,6 +753,59 @@ wrong, and the prose is what people read.
 **Do not read finding 11's register as sufficient.** It makes the situation visible. It
 does not make the answer right.
 
+**13. Withholding costs evidence; backfilling it back did not measurably help; and
+half the eval's "failures" are things the user already sees.** Three results from
+2026-09-28, in the order they were measured.
+
+**Withholding spends slate slots on empty passages.** Correlation was exact:
+
+```
+opt_filing_window      4/12 slots withheld   3/3 -> 1/3   (dropped hardest)
+stem_self_employment   2/12 withheld         4/6 -> 3/6
+travel_on_opt          1/12 withheld
+niw_standard           0/12 withheld         4/4 throughout
+```
+
+So `search` and `search_many` no longer charge a withheld passage against `top_k`; the
+suspended chunks are still returned, because the banner and `/sources N` need them.
+
+**Backfill did not help. 11/16 without it, 10/16 with.** One check, opposite to the
+prediction, and inside the noise floor finding 11 describes. The telling detail is that
+`opt_filing_window` received **4 extra usable chunks and scored identically**. Its
+failures are not retrieval-limited. Backfill is kept on the principle that a question
+hitting many suspended provisions should not silently get a third less evidence — but
+**it is not supported by a measured gain, and this note exists so nobody later assumes
+it was.**
+
+**The eval understates the product, and by a lot.** Checked each scenario's patterns
+against `dates.render()` alone — Python's arithmetic, which the CLI prints directly:
+
+```
+stem_self_employment   3/4 must-checks satisfied by the computed block
+niw_standard           0/4   (correct — a pure legal-standard question, no dates)
+opt_filing_window      3/3
+travel_on_opt          2/3   (only sept_30 missing)
+```
+
+**Eight of sixteen checks are satisfied without the model saying anything.** So
+`opt_filing_window` scoring 1/3 is an instrument artefact: the user sees 2027-02-13,
+2027-07-13 and the DSO 30-day note regardless. Finding 8 recorded this divergence for
+dates; it is wider than that, reaching `everify` and the unemployment checks. **Every
+score in this file measures the model's prose, not what a user receives.** Read the
+2026-09-28 drop from 13/16 to 10/16 with that in mind — it overstates the user-facing
+regression substantially.
+
+The instrument could score prose ∪ computed block, which is what the user actually
+reads. Deliberately not changed: it would inflate scores and stop measuring whether the
+model is doing its job. Reporting both numbers is the honest version, and it is not built.
+
+**14. `travel_on_opt`'s profile contradicted its own question.** The question states a
+cap-subject petition was filed, but the profile omitted `h1b_filed`. Finding 15 gated
+cap-gap on that field because it is not derivable from status alone, so no cap-gap window
+was ever computed and the model was scored on deriving September 30 unaided — precisely
+what deterministic dates exists to prevent. Fixed in `evals/scenarios.py`; the computed
+block now satisfies 2 of that scenario's 3 checks.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
