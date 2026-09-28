@@ -86,6 +86,19 @@ class Settings(BaseSettings):
     chunk_tokens: int = 700
     chunk_overlap: int = 80
 
+    # How long a register entry may go unchecked before it is called stale. Shorter
+    # than the corpus cadence on purpose: an injunction can be lifted or made permanent
+    # between two editions of the CFR, and a false warning is as misleading as none.
+    register_refresh_days: int = 14
+    # Where to pull a newer register from. Empty means use the copy shipped with the
+    # code — an unreachable URL must degrade to that floor, never to silence.
+    register_url: str = ""
+
+    @property
+    def register(self) -> Path:
+        """Litigation status. Public information; contains nothing about the user."""
+        return self.home / "register"
+
     @property
     def corpus(self) -> Path:
         """Public law. Shareable."""
@@ -105,7 +118,13 @@ class Settings(BaseSettings):
         return Path(__file__).resolve().parents[2] / "sources"
 
     def ensure_dirs(self) -> None:
-        for d in (self.corpus, self.me, self.me / "docs", self.me / "memory"):
+        for d in (
+            self.corpus,
+            self.register,
+            self.me,
+            self.me / "docs",
+            self.me / "memory",
+        ):
             d.mkdir(parents=True, exist_ok=True)
         # Personal data must never be committed, even if a repo is created here.
         gitignore = self.me / ".gitignore"

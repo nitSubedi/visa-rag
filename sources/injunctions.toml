@@ -1,0 +1,44 @@
+# Provisions that are published in the corpus but not in force.
+#
+# The eCFR publishes regulations as amended and encodes nothing about litigation. A
+# nationwide injunction therefore leaves the corpus simultaneously current and wrong,
+# with every freshness signal green — see STATE.md finding 11. This register is the only
+# thing standing between that and an answer quoting enjoined law confidently.
+#
+# Entries are per *provision*, never per rule: a court can enjoin part of a rulemaking
+# and leave the rest in force, which is exactly what happened below.
+#
+# Maintained by hand because "which provisions does this order enjoin, and for whom" is
+# legal judgment that no docket API returns. Automation may alert a maintainer; it must
+# never write an entry. A wrong entry is a wrong legal claim.
+#
+# `checked` is load-bearing. Staleness here is dangerous in BOTH directions: a lifted
+# injunction leaves a false warning, a new one leaves no warning at all.
+
+[[entry]]
+provisions = [
+  "8 CFR 214.2(f)(5)",
+  "8 CFR 214.2(f)(7)",
+  "8 CFR 214.2(f)(11)",
+  "8 CFR 214.1(m)",
+  "8 CFR 214.2(j)",
+]
+status = "enjoined"
+case = "Presidents' Alliance on Higher Education and Immigration v. DHS"
+docket = "No. 1:26-cv-13799 (D. Mass.)"
+court = "U.S. District Court for the District of Massachusetts"
+order_date = 2026-09-14
+scope = "nationwide preliminary injunction"
+rule = "DHS final rule published 2026-07-17, scheduled to take effect 2026-09-15"
+instead = """\
+Duration of status (D/S) continues to govern F-1 and J-1 admission. The 60-day grace \
+period survives. Enjoined along with fixed admission periods: the Form I-539 \
+extension-of-stay requirement, the 240-day limit on continued employment during a \
+pending extension, restrictions on second programs at the same or a lower level, \
+transfer and graduate-level change restrictions, and the transition provisions."""
+not_covered = """\
+SEVP's curricular practical training guidance of 2026-08-12 and 2026-08-24 is NOT \
+covered by this injunction. It was issued under the existing CPT regulations and does \
+not depend on the D/S framework, so those narrower CPT restrictions remain in force."""
+source_url = "https://www.presidentsalliance.org/duration-of-status-litigation/"
+checked = 2026-09-28
