@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import answer as ans
-from . import chunk, dates, embed, fetch, profile, store
+from . import chunk, dates, embed, fetch, profile, register, store
 from .config import settings, tier_label
 from .models import Chunk, Manifest
 from .search import Hit, Index
@@ -246,6 +246,27 @@ def sources() -> None:
             "[red]stale[/red]" if stale else "[green]fresh[/green]",
         )
     c.print(t)
+    # The register goes stale in both directions — a lifted injunction leaves a false
+    # warning, a new one leaves none — so its age belongs next to the corpus, not buried.
+    entries = register.load()
+    if entries:
+        worst = max(e.age_days for e in entries)
+        stale = any(e.is_stale for e in entries)
+        n = sum(len(e.provisions) for e in entries)
+        c.print(
+            f"litigation register: {len(entries)} order(s) over {n} provision(s), "
+            f"checked {worst}d ago — "
+            + (
+                "[red]stale: an injunction may have been lifted or added[/red]"
+                if stale
+                else "[green]fresh[/green]"
+            )
+        )
+    else:
+        c.print(
+            "[red]litigation register: empty — enjoined law will not be "
+            "flagged[/red]"
+        )
     c.print(
         "[dim]Priority dates are intentionally not cached — check travel.state.gov.[/dim]"
     )
@@ -362,6 +383,40 @@ def _answer_once(
     # verify_dates catches a date the model got *wrong*; nothing caught a date it
     # simply omitted, and omission is the common failure — three of the eval's date
     # checks fail that way. These are Python's arithmetic, so print them directly.
+    # Loudest thing on screen, and first. Every other check asks whether the answer
+    # matches the corpus; this one says the corpus is not the law.
+    if affected := register.affecting([h.row.citation for h in hits]):
+        for entry in affected:
+            body = [entry.headline()]
+            if entry.court:
+                body.append(f"court: {entry.court}")
+            if entry.instead:
+                body.append("")
+                body.append(f"What governs instead: {' '.join(entry.instead.split())}")
+            if entry.not_covered:
+                body.append("")
+                body.append(f"Still in force: {' '.join(entry.not_covered.split())}")
+            body.append("")
+            age = (
+                f"litigation status last checked {entry.checked} "
+                f"({entry.age_days}d ago)"
+            )
+            body.append(
+                f"[red]{age} — verify before relying on it[/red]"
+                if entry.is_stale
+                else f"[dim]{age}[/dim]"
+            )
+            if entry.source_url:
+                body.append(f"[dim]{entry.source_url}[/dim]")
+            c.print(
+                Panel(
+                    "\n".join(body),
+                    title="[red]this provision is NOT IN FORCE[/red]",
+                    subtitle="[red]published law a court has suspended[/red]",
+                    border_style="red",
+                )
+            )
+
     if deadlines := dates.render(profile.load()):
         c.print(
             Panel(
