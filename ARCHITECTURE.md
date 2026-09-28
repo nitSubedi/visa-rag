@@ -215,6 +215,11 @@ graph and LangGraph would deserve a look. Neither is a reason to adopt a framewo
 
 `ruff check src tests && mypy && pytest` before pushing.
 
+`.python-version` pins 3.11, the floor in `requires-python`. Type-checking against
+the floor is the point — on 3.12 the installed numpy ships stubs using 3.12-only
+syntax, `mypy` cannot parse them under `python_version = "3.11"`, and the whole
+gate fails on a file nobody in this repo wrote.
+
 Tests assert **properties**, not transcripts, because the space of real situations is not
 enumerable: a paragraph must not promise a list it does not contain; the deadline block
 must survive a full source slate plus maximum history; no single section may dominate the
