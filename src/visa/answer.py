@@ -172,7 +172,9 @@ def build_prompt(
     )
 
     reg = register.load()
-    blocks: list[str] = []
+    # Not `blocks` — that is the module-level passage splitter shared by uncited_claims
+    # and verify_dates, and shadowing it here would be a trap for the next edit.
+    source_blocks: list[str] = []
     used = 0
     for i, h in enumerate(hits, 1):
         r = h.row
@@ -192,14 +194,17 @@ def build_prompt(
         else:
             block = f"{head}\n{r.text}"
         cost = est_tokens(block)
-        if used + cost > budget and blocks:
+        if used + cost > budget and source_blocks:
             break
-        blocks.append(block)
+        source_blocks.append(block)
         used += cost
 
     return [
         {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": "SOURCES:\n\n" + "\n\n".join(blocks) + "\n\n" + tail},
+        {
+            "role": "user",
+            "content": "SOURCES:\n\n" + "\n\n".join(source_blocks) + "\n\n" + tail,
+        },
     ]
 
 
@@ -423,6 +428,16 @@ DEONTIC_RE = re.compile(
 )
 
 
+def blocks(text: str) -> list[str]:
+    """Paragraphs and list items — the unit a citation is understood to cover.
+
+    Shared so grounding and date support agree on what a passage is. A bracket in one
+    paragraph does not vouch for a claim in the next.
+    """
+    parts = re.split(r"\n\s*\n|\n(?=\s*[-*\u2022]|\s*\d+\.)", text)
+    return [b.strip() for b in parts if b.strip()]
+
+
 def uncited_claims(text: str) -> list[str]:
     """Passages stating what the person must or may do, carrying no bracket.
 
@@ -430,11 +445,10 @@ def uncited_claims(text: str) -> list[str]:
     the same selection rule. If the two ever disagreed about what a claim is, the
     answer-check panel would report a number it could not explain.
     """
-    blocks = [b.strip() for b in re.split(r"\n\s*\n|\n(?=\s*[-*\u2022]|\s*\d+\.)", text)]
     return [
         b
-        for b in blocks
-        if b and DEONTIC_RE.search(b) and not re.search(r"\[\d{1,2}\]", b)
+        for b in blocks(text)
+        if DEONTIC_RE.search(b) and not re.search(r"\[\d{1,2}\]", b)
     ]
 
 
@@ -574,45 +588,71 @@ def verify_dates(
         d: w.name for w in windows for d in (w.opens, w.closes) if d is not None
     }
 
-    supported = ""
-    if hits is not None:
-        # Suspended passages are withheld from the prompt, so they cannot support
-        # anything the model said — it never saw them. Counting them here let an
-        # invented 2026-12-14 filing date pass, validated by an enjoined transition
-        # provision for a different visa class that happened to contain that date.
-        reg = register.load()
+    computed = dates.render(prof)
+    reg = register.load() if hits else []
+
+    def cited_text(block: str) -> str:
+        """What may vouch for the dates in this block.
+
+        Where the block cites sources, only those sources count. That closes the
+        laundering case — a date carried by [1] cannot be justified by pointing at [2] —
+        without widening anything.
+
+        Where the block cites nothing, the whole slate counts, as before. Requiring a
+        bracket for every date would make date safety depend on citation compliance,
+        which is this project's known-erratic feature: the same conversation produced 7,
+        then 0, then 1 citations. Most correct dates are uncited, so the check would fire
+        on them constantly — finding 14b's lesson that a warning crying wolf
+        systematically is worse than no warning.
+
+        Suspended passages never count either way. They are withheld from the prompt, so
+        the model cannot have been quoting them, and counting them let an invented
+        2026-12-14 pass on the strength of an enjoined transition provision for a
+        different visa class.
+        """
+        if hits is None:
+            return computed
         usable = [
             h for h in hits if not register.suspended(h.row.citation, h.row.text, reg)
         ]
-        supported = dates.render(prof) + "\n" + "\n".join(h.row.text for h in usable)
+        cited = [
+            hits[n - 1]
+            for n in sorted({int(x) for x in BRACKET_RE.findall(block)})
+            if 1 <= n <= len(hits)
+        ]
+        scope = [h for h in cited if h in usable] or usable
+        return "\n".join([computed, *(h.row.text for h in scope)])
 
     problems = []
-    for raw, got in _iter_dates(text):
-        if got in boundaries:
-            continue
-        # Support first, drift second. A window's close has a neighbour by design —
-        # cap-gap ends Sep 30 and the new status begins Oct 1 — so checking drift
-        # first flagged a correct October 1 as "1d off", on every cap-gap answer.
-        # A warning that cries wolf systematically is worse than none.
-        if any(form.lower() in supported.lower() for form in _date_forms(got)):
-            continue
-        near = next(
-            ((b, n) for b, n in boundaries.items() if 0 < abs((got - b).days) <= 3),
-            None,
-        )
-        if near:
-            b, name = near
-            problems.append(
-                f"answer says {raw}, but the computed {name} boundary is "
-                f"{b.isoformat()} ({abs((got - b).days)}d off) — trust the computed date"
+    for block in blocks(text) or [text]:
+        supported = cited_text(block)
+        for raw, got in _iter_dates(block):
+            if got in boundaries:
+                continue
+            # Support first, drift second. A window's close has a neighbour by design —
+            # cap-gap ends Sep 30 and the new status begins Oct 1 — so checking drift
+            # first flagged a correct October 1 as "1d off", on every cap-gap answer.
+            # A warning that cries wolf systematically is worse than none.
+            if any(form.lower() in supported.lower() for form in _date_forms(got)):
+                continue
+            near = next(
+                ((b, n) for b, n in boundaries.items() if 0 < abs((got - b).days) <= 3),
+                None,
             )
-            continue
-        if hits is None:
-            continue
-        problems.append(
-            f"answer states {raw}, which appears in neither the computed deadlines "
-            f"nor any retrieved source — the model worked it out, so check it"
-        )
+            if near:
+                b, name = near
+                problems.append(
+                    f"answer says {raw}, but the computed {name} boundary is "
+                    f"{b.isoformat()} ({abs((got - b).days)}d off) — "
+                    f"trust the computed date"
+                )
+                continue
+            if hits is None:
+                continue
+            problems.append(
+                f"answer states {raw}, which no source it cites contains and no "
+                f"computed deadline matches — the model worked it out, so check it"
+            )
     return _dedupe(problems)
 
 
