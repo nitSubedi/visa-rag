@@ -1,7 +1,8 @@
 # Project state — visa-rag
 
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-28
 **Status:** v1 working end-to-end, plus stages 1-3 of the reasoning/dialogue spec.
+Retrieval and eval-determinism work of 2026-09-09 is merged to `main`.
 Stage 4 (persisted situation model) and v2 (sharing/packaging) not started.
 
 ---
@@ -19,7 +20,10 @@ sevp-stem-opt            21 chunks   tier 4 guidance
 uscis-policy-updates      5 chunks   tier 4 guidance
 ```
 
-Reindexed 2026-08-25; all five shards inside their refresh windows as of 2026-09-09.
+Reindexed 2026-09-09 after the enumerated split and the embedding change, so the live
+index is **10,779 chunks**, not the 8,305 tabulated above. All five shards were inside
+their refresh windows on 2026-09-09; `8-cfr` and `uscis-policy-manual` carry a 30-day
+cadence and are due a `visa refresh`.
 
 Verified live: asking for the NIW standard returns the correct *Dhanasar* three prongs,
 cited to USCIS PM Vol 6, Pt F, Ch 5. Default model is now `qwen2.5:7b` — see finding 7.
