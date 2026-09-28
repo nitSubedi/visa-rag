@@ -652,6 +652,39 @@ examples or a post-check that flags uncited claims are the untried options.
 
 ---
 
+**11. F-1 duration of status is gone — and `dates.py` has not caught up.**
+The 2026-09-28 refresh pulled 8 CFR edition **2026-09-18** (`amended_on` the same day,
+upstream current as of 2026-09-24) and `tests/test_citations.py` failed, correctly.
+214.2(f)(5) was **"Duration of status"**; it is now:
+
+> **Period of stay** — (i) *General.* An F-1 student is admitted for a **fixed period of
+> time**, which is the period necessary to complete the course of study indicated on the
+> Form I-20 ... **not to exceed a period of 4 years**.
+
+"duration of status" no longer appears anywhere under 214.2(f) — 12 chunks carried it
+before the refresh, 0 after. The Policy Manual moved with it: 2,443 -> 2,531 chunks.
+
+The classification machinery was *not* at fault: every `forbid` assertion still passed,
+so paragraph lettering is intact. The test was asserting a fact about the law that
+stopped being true. **A citation test failing after `visa refresh` is the freshness
+mechanism working.** Read the diff before touching the test.
+
+**What this breaks, and is not yet fixed:**
+1. **`dates.py` models no admission expiry.** Every window is computed from
+   `program_end_date`. F-1 status now also ends at a fixed admission date capped at 4
+   years, which can fall *before* program end — a student on a 5-year PhD is the obvious
+   case. The tool cannot currently see that cliff, and it is the kind of date whose
+   omission costs someone their status.
+2. **A new filing requirement is unmodelled.** 214.1(m) now says an F-1 who departs
+   before filing post-completion or STEM OPT and is readmitted with a fixed period of
+   admission must file **both** Form I-765 **and** Form I-539. Nothing in the prompt or
+   the computed deadlines knows this.
+3. **The profile has no field for it.** `visa profile` collects `program_end_date` but
+   not the I-94 admit-until date, so the cliff is not even expressible yet.
+
+Do not treat this as a chunker task. It is legal-logic work: a new `Window`, a new
+profile field, and a prompt that distinguishes program end from admission expiry.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),

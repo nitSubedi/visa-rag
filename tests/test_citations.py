@@ -44,7 +44,13 @@ def by_cite(rows):
 CASES = [
     (
         "8 CFR § 214.2(f)",
-        ["duration of status", "practical training", "60-day"],
+        # "duration of status" was a content marker here until the 2026-09-18 edition.
+        # It is now wrong law: (f)(5) was retitled "Period of stay" and F-1 students are
+        # admitted for a fixed period not to exceed 4 years. The marker is the concept
+        # the paragraph is *about*, so it has to track the paragraph — but keep both
+        # phrasings visible, because this test failing on a refresh is the freshness
+        # mechanism working, not a regression to paper over.
+        ["period of stay", "practical training", "60 day"],
         ["specialty occupation", "representatives of information media"],
     ),
     (
