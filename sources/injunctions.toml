@@ -17,11 +17,18 @@
 
 [[entry]]
 provisions = [
+  # F-1 students
   "8 CFR 214.2(f)(5)",
   "8 CFR 214.2(f)(7)",
   "8 CFR 214.2(f)(11)",
-  "8 CFR 214.1(m)",
+  # J-1 exchange visitors
   "8 CFR 214.2(j)",
+  # I foreign media representatives — the rule covered F, J AND I, and the injunction
+  # reaches all three. 214.2(i) now carries a 240-day fixed period with a carve-out for
+  # PRC passport holders; that is the enjoined text, not current law.
+  "8 CFR 214.2(i)",
+  # cross-cutting: extension, maintenance and the pending-EAD provisions
+  "8 CFR 214.1(m)",
 ]
 status = "enjoined"
 case = "Presidents' Alliance on Higher Education and Immigration v. DHS"
@@ -31,11 +38,14 @@ order_date = 2026-09-14
 scope = "nationwide preliminary injunction"
 rule = "DHS final rule published 2026-07-17, scheduled to take effect 2026-09-15"
 instead = """\
-Duration of status (D/S) continues to govern F-1 and J-1 admission. The 60-day grace \
-period survives. Enjoined along with fixed admission periods: the Form I-539 \
-extension-of-stay requirement, the 240-day limit on continued employment during a \
-pending extension, restrictions on second programs at the same or a lower level, \
-transfer and graduate-level change restrictions, and the transition provisions."""
+Duration of status (D/S) continues to govern F-1, J-1 and I admission. The rule would \
+have cut the F and J departure grace period from 60 days to 30; the 60-day period \
+survives. Enjoined along with fixed admission periods: the Form I-539 extension-of-stay \
+requirement, the 240-day limit on continued employment during a pending extension, \
+restrictions on second programs at the same or a lower level, transfer and \
+graduate-level change restrictions, and the transition provisions. The court postponed \
+the rule's effective date and barred DHS and ICE from further steps to implement it \
+while the litigation proceeds."""
 not_covered = """\
 SEVP's curricular practical training guidance of 2026-08-12 and 2026-08-24 is NOT \
 covered by this injunction. It was issued under the existing CPT regulations and does \

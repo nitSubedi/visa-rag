@@ -261,3 +261,14 @@ def test_withheld_chunks_do_not_consume_the_evidence_budget() -> None:
         f"only {len(usable)} usable of {len(hits)} returned; "
         f"{len(hits) - len(usable)} withheld slots crowded out real law"
     )
+
+
+def test_the_i_visa_provisions_are_registered_too() -> None:
+    """The rulemaking covered F, J *and* I nonimmigrants, and the injunction reaches all
+    three — the NewsGuild-CWA was a plaintiff. An earlier version of this register listed
+    only the F and J provisions, leaving 214.2(i)'s 240-day fixed period quotable as
+    current law."""
+    entries = register.load()
+    hits = register.affecting(["8 CFR § 214.2(i)"], entries)
+    assert hits, "214.2(i) carries the enjoined I-visa fixed period"
+    assert "214.2(i)" in " ".join(hits[0].provisions)
