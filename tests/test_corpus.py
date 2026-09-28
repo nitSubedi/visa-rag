@@ -123,3 +123,62 @@ def test_every_paragraph_opens_with_its_own_letter(by_section) -> None:
         f"{len(mismatched)} paragraph(s) do not open with their own letter: "
         f"{mismatched[:10]}"
     )
+
+
+# ------------------------------------------------- enumerated provisions are splittable
+
+EB1A_CRITERIA = (
+    "lesser nationally or internationally recognized prizes",
+    "membership in associations",
+    "Published material about the alien",
+    "as a judge of the work of others",
+    "contributions of major significance",
+    "authorship of scholarly articles",
+    "artistic exhibitions or showcases",
+    "leading or critical role",
+    "commanded a high salary",
+    "commercial successes in the performing arts",
+)
+
+
+@pytest.fixture(scope="module")
+def cfr_chunks() -> list:
+    return chunk.chunk_ecfr(_xml(), SRC)
+
+
+def _carrying(chunks, phrase, citation="204.5(h)"):
+    return [c for c in chunks if citation in c.citation and phrase in c.text]
+
+
+def test_each_eb1a_criterion_lands_in_its_own_chunk(cfr_chunks) -> None:
+    """Finding 10c: the ten criteria sat in one 703-token chunk covering definitions,
+    the 3-of-10 gate, all ten tests and the employment clause. That embedding matches
+    nothing sharply — querying criterion (v) by its own literal wording returned zero
+    regulation, while the near-identically worded O-1 provision at 214.2(o), which IS
+    finely chunked, won every EB-1A query. Size was never the defect; packing ten
+    independent legal tests into one vector was."""
+    for phrase in EB1A_CRITERIA:
+        holders = _carrying(cfr_chunks, phrase)
+        assert holders, f"criterion text missing from 204.5(h): {phrase!r}"
+        others = [p for p in EB1A_CRITERIA if p != phrase]
+        best = min(holders, key=lambda c: sum(o in c.text for o in others))
+        crowd = sum(o in best.text for o in others)
+        assert crowd <= 2, f"{phrase!r} shares a chunk with {crowd} other criteria"
+
+
+def test_a_split_criterion_still_carries_the_three_of_ten_gate(cfr_chunks) -> None:
+    """A criterion severed from "at least three of the following" is a trap: it reads
+    as a requirement rather than one of ten alternatives. That misreading is exactly
+    the error finding 10 recorded — a model calling absent membership fatal."""
+    for phrase in ("contributions of major significance", "commanded a high salary"):
+        holders = _carrying(cfr_chunks, phrase)
+        assert any("at least three of the following" in c.text for c in holders), (
+            f"no chunk carrying {phrase!r} retains the 3-of-10 stem"
+        )
+
+
+def test_splitting_never_invents_a_citation(cfr_chunks) -> None:
+    """Pieces of 204.5(h) stay 204.5(h). A split that renumbers is finding 2b again."""
+    for phrase in EB1A_CRITERIA:
+        for c in _carrying(cfr_chunks, phrase):
+            assert c.citation.strip().endswith("204.5(h)"), c.citation

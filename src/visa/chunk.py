@@ -64,7 +64,53 @@ def _pack(
         n += pt
     if cur:
         out.append(" ".join(cur))
-    return [c for c in out if c.strip()]
+    return [p for c in out if c.strip() for p in _split_enumerated(c)]
+
+
+# A provision that enumerates alternative tests is not one passage but N of them.
+# 8 CFR 204.5(h) packed the ten EB-1A criteria, the definition, the 3-of-10 gate and
+# the employment clause into a single chunk. It never broke the token budget — 703
+# tokens against 700 — so nothing here was misbehaving. But one vector standing for
+# ten independent legal tests matches none of them sharply: criterion (v) could not be
+# retrieved by its own literal wording, while 214.2(o) — the O-1 nonimmigrant
+# provision, worded near-identically and finely chunked — won every EB-1A query. The
+# correct provision lost to the wrong one because the wrong one was better chunked.
+#
+# Split at the enumeration, and carry the stem into every piece: a criterion severed
+# from "at least three of the following" reads as a requirement rather than one of ten
+# alternatives, which is precisely the misreading finding 10 recorded.
+ENUM_ITEM = re.compile(
+    r"(?<![A-Za-z])\((?:i{1,3}|iv|vi{1,3}|ix|xi{0,3}|v|x)\)\s+(?=[A-Z])"
+)
+ENUM_MIN_ITEMS = 4  # three enumerated items is ordinary prose; four is a test
+ENUM_MIN_TOKENS = 400  # below this the packed embedding is still sharp enough
+ENUM_STEM_TOKENS = 120  # enough to carry the gate sentence that governs the items
+
+
+def _split_enumerated(text: str) -> list[str]:
+    """Split an enumerated provision into its stem plus one piece per item, each piece
+    still carrying the stem's tail. Returns [text] unchanged when the rule misses."""
+    marks = list(ENUM_ITEM.finditer(text))
+    if len(marks) < ENUM_MIN_ITEMS or ntokens(text) < ENUM_MIN_TOKENS:
+        return [text]
+
+    stem = text[: marks[0].start()].rstrip()
+    if not stem.strip():
+        return [text]
+
+    # The citation header is the chunk's first line; every piece needs it back.
+    head, _, body = stem.partition("\n")
+    if "\u00a7" not in head and "SEC." not in head:
+        head, body = "", stem
+    lead = " ".join(x for x in (head, " ".join(body.split()[-ENUM_STEM_TOKENS:])) if x)
+
+    bounds = [m.start() for m in marks] + [len(text)]
+    out = [stem]
+    for i in range(len(marks)):
+        item = text[bounds[i] : bounds[i + 1]].strip()
+        if item:
+            out.append(f"{lead.strip()} {item}".strip())
+    return out
 
 
 def _split_sentences(text: str, budget: int) -> list[str]:
