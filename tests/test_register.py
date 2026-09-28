@@ -139,3 +139,100 @@ def test_an_unaffected_question_gets_no_note() -> None:
 
     body = answer.build_prompt("q", [_Hit("8 CFR § 204.5(h)")])[1]["content"]
     assert "NOT IN FORCE" not in body
+
+
+# --- precision: a suspended sub-paragraph must not condemn its whole paragraph ------
+
+F5_TEXT = (
+    "8 CFR § 214.2(f) — students\n(5) Period of stay—(i) General. An F-1 student is "
+    "admitted for a fixed period of time, not to exceed a period of 4 years."
+)
+F4_TEXT = (
+    "8 CFR § 214.2(f) — students\n(4) Temporary absence. An F-1 student returning from "
+    "a temporary absence of five months or less may be readmitted if the student "
+    "presents a current Form I-20."
+)
+
+
+def test_text_decides_which_part_of_a_paragraph_is_suspended() -> None:
+    """The corpus cites at paragraph level — "8 CFR § 214.2(f)" is the whole F-1
+    paragraph — while the register names sub-paragraphs. Matching on the citation alone
+    condemned filing rules that were never enjoined (finding 12). The chunk text is what
+    distinguishes them."""
+    assert register.covers("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)", F5_TEXT)
+    assert not register.covers("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)", F4_TEXT)
+
+
+def test_without_text_a_more_specific_provision_still_matches() -> None:
+    """Under-warning is the dangerous direction: quoting enjoined law as current is
+    worse than withholding law that is in force. With nothing to inspect, warn."""
+    assert register.covers("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)")
+
+
+def test_a_broader_registered_provision_needs_no_text() -> None:
+    """Registering all of 214.1(m) covers every chunk of it, whatever the slice."""
+    assert register.covers("8 CFR 214.1(m)", "8 CFR § 214.1(m)", F4_TEXT)
+
+
+# --- exclusion with visibility -----------------------------------------------------
+
+
+def _hit(citation: str, text: str):
+    from visa.models import Chunk
+
+    class _H:
+        def __init__(self) -> None:
+            self.row = Chunk(text=text, citation=citation, tier=2, shard="t")
+            self.cosine = 0.8
+
+    return _H()
+
+
+def test_suspended_text_never_reaches_the_prompt() -> None:
+    """Finding 12: a 7b handed suspended law plus a warning quotes the law. 228 tokens
+    of warning lost to 8,000 tokens of on-topic passage. Withhold the text instead."""
+    from visa import answer
+
+    body = answer.build_prompt("q", [_hit("8 CFR § 214.2(f)", F5_TEXT)])[1]["content"]
+    assert "not to exceed a period of 4 years" not in body
+    assert "SUSPENDED" in body
+
+
+def test_in_force_text_under_the_same_citation_is_kept() -> None:
+    """The whole point of the precision fix: (4) is in force and must still be usable."""
+    from visa import answer
+
+    body = answer.build_prompt("q", [_hit("8 CFR § 214.2(f)", F4_TEXT)])[1]["content"]
+    assert "Temporary absence" in body
+    assert "SUSPENDED" not in body
+
+
+def test_withholding_preserves_the_source_numbering() -> None:
+    """`/sources N` and verify_citations both key off the slot number, so a withheld
+    passage has to keep its slot rather than shift the ones after it."""
+    from visa import answer
+
+    hits = [
+        _hit("8 CFR § 204.5(h)", "extraordinary ability criteria"),
+        _hit("8 CFR § 214.2(f)", F5_TEXT),
+        _hit("8 CFR § 214.2(o)", "O-1 consultation requirement"),
+    ]
+    body = answer.build_prompt("q", hits)[1]["content"]
+    assert "[1] 8 CFR § 204.5(h)" in body
+    assert "[2] 8 CFR § 214.2(f)" in body
+    assert "[3] 8 CFR § 214.2(o)" in body
+    assert "consultation" in body
+
+
+def test_suspended_text_cannot_support_a_date() -> None:
+    """Withholding happens in build_prompt; verify_dates read the unfiltered hits, so a
+    date could be "supported" by suspended law the model was never shown. Observed: the
+    model invented a 2026-12-14 filing date, and it passed because "December 14, 2026"
+    appears in 214.1(m) — an enjoined transition provision, on an unrelated visa class."""
+    from visa import answer
+
+    prof = {"status": "F-1", "program_end_date": "2027-05-14"}
+    hits = [_hit("8 CFR § 214.1(m)", "not to exceed December 14, 2026. Aliens who need")]
+    problems = answer.verify_dates("you may file by 2026-12-14.", prof=prof, hits=hits)
+    assert problems, "a date supported only by suspended text must still be flagged"
+    assert "2026-12-14" in problems[0]

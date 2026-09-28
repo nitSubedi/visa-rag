@@ -46,20 +46,57 @@ def _parse(citation: str) -> tuple[str, str, str, list[str]] | None:
     return m.group(1), corpus, m.group(3), parts
 
 
-def covers(provision: str, citation: str) -> bool:
-    """Does a registered provision govern the text a chunk was cited under?
+def _mentions(text: str, path: list[str], depth: int) -> bool:
+    """Does this passage actually contain the sub-paragraph the register names?
 
-    True when title, corpus and section agree and one paragraph path is a prefix of the
-    other. Both directions matter: the register may name a sub-paragraph of a chunk
-    cited at paragraph level, or cover a whole paragraph of which the chunk is one part.
+    The corpus cites at paragraph level — "8 CFR § 214.2(f)" is the entire F-1
+    paragraph — so the citation cannot say which sub-paragraph a chunk's slice of text
+    came from. Matching on the citation alone therefore condemned filing rules that
+    were never enjoined (finding 12). The enumerator in the text is what distinguishes
+    them, so look for it the same way the chunker recognises one: a marker followed by
+    the start of a sentence.
+    """
+    marker = path[depth]
+    return re.search(rf"\({re.escape(marker)}\)\s*[A-Z(]", text) is not None
+
+
+def covers(provision: str, citation: str, text: str | None = None) -> bool:
+    """Does a registered provision reach the passage a chunk was cited under?
+
+    Title, corpus and section must agree, and one paragraph path must be a prefix of the
+    other. Where the register is *broader* than the citation, that settles it — every
+    slice of the paragraph is covered.
+
+    Where the register is *more specific* than the citation, the citation alone cannot
+    decide, and `text` is consulted. With no text to inspect the answer is yes, because
+    the two errors are not symmetric: withholding law that is in force costs the model a
+    source, while quoting suspended law as current costs someone their status.
     """
     a, b = _parse(provision), _parse(citation)
     if a is None or b is None:
         return False
     if (a[0], a[1], a[2]) != (b[0], b[1], b[2]):
         return False
-    short, long = sorted((a[3], b[3]), key=len)
-    return long[: len(short)] == short
+    reg_path, cite_path = a[3], b[3]
+    short, long = sorted((reg_path, cite_path), key=len)
+    if long[: len(short)] != short:
+        return False
+    if len(reg_path) <= len(cite_path):  # register is at or above the citation
+        return True
+    if text is None:
+        return True
+    return _mentions(text, reg_path, len(cite_path))
+
+
+def suspended(
+    citation: str, text: str | None, entries: list[Entry] | None = None
+) -> Entry | None:
+    """The order suspending this passage, if any."""
+    entries = entries if entries is not None else load()
+    for e in entries:
+        if any(covers(p, citation, text) for p in e.provisions):
+            return e
+    return None
 
 
 @dataclass(frozen=True)

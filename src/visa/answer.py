@@ -171,11 +171,26 @@ def build_prompt(
         - est_tokens(tail)
     )
 
+    reg = register.load()
     blocks: list[str] = []
     used = 0
     for i, h in enumerate(hits, 1):
         r = h.row
-        block = f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})\n{r.text}"
+        head = f"[{i}] {r.citation}  ({tier_label(r.tier)} · {r.source_title})"
+        # Withhold the text of a suspended passage rather than annotate it. Finding 12:
+        # a 7b handed the enjoined rule plus a warning quoted the rule, invented a filing
+        # date from it, and ignored the correct computed dates sitting in the tail — 228
+        # tokens of caution lost to ~8,000 tokens of on-topic passage. The slot stays so
+        # `/sources N` and verify_citations keep their numbering, and the passage is still
+        # printed in the sources panel; the model simply has nothing to quote.
+        if e := register.suspended(r.citation, r.text, reg):
+            block = (
+                f"{head}\n[SUSPENDED — withheld] A court has suspended this provision "
+                f"({e.case}, {e.docket}, {e.order_date}). Its text is deliberately not "
+                f"shown. Do not state it as law. Use [n] for other sources."
+            )
+        else:
+            block = f"{head}\n{r.text}"
         cost = est_tokens(block)
         if used + cost > budget and blocks:
             break
@@ -561,7 +576,15 @@ def verify_dates(
 
     supported = ""
     if hits is not None:
-        supported = dates.render(prof) + "\n" + "\n".join(h.row.text for h in hits)
+        # Suspended passages are withheld from the prompt, so they cannot support
+        # anything the model said — it never saw them. Counting them here let an
+        # invented 2026-12-14 filing date pass, validated by an enjoined transition
+        # provision for a different visa class that happened to contain that date.
+        reg = register.load()
+        usable = [
+            h for h in hits if not register.suspended(h.row.citation, h.row.text, reg)
+        ]
+        supported = dates.render(prof) + "\n" + "\n".join(h.row.text for h in usable)
 
     problems = []
     for raw, got in _iter_dates(text):
