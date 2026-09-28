@@ -184,8 +184,14 @@ def build_prompt(
 
 
 def stream_chat(
-    messages: list[dict[str, str]], model: str | None = None, temperature: float = 0.15
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    temperature: float = 0.15,
+    fmt: dict[str, object] | None = None,
 ) -> Iterator[str]:
+    """`fmt` is a JSON schema. Ollama masks tokens that would violate it during
+    sampling, so an out-of-schema reply is unreachable rather than discouraged — the
+    one thing prompt wording has repeatedly failed to achieve on a 7b."""
     payload: dict[str, object] = {
         "model": model or settings.chat_model,
         "messages": messages,
@@ -193,6 +199,8 @@ def stream_chat(
         "keep_alive": settings.keep_alive,
         "options": {"temperature": temperature, "num_ctx": settings.num_ctx},
     }
+    if fmt is not None:
+        payload["format"] = fmt
     req = urllib.request.Request(
         f"{settings.ollama_host}/api/chat",
         data=json.dumps(payload).encode(),
@@ -428,6 +436,94 @@ def verify_grounding(text: str) -> list[str]:
         f"{len(ungrounded)} passage(s) state what you must or may do without citing a "
         f"source — first: \"{' '.join(ungrounded[0].split())[:90]}…\""
     ]
+
+
+# Asked as a typed question rather than enforced as prose, because "nothing supports
+# this" has to be sayable. A grammar mandating a citation per sentence would fix the
+# omission count and manufacture false attributions to do it — trading a visible gap
+# for an invisible error, which in a legal tool is the worse of the two.
+ATTRIBUTION_SCHEMA: dict[str, object] = {
+    "type": "object",
+    "properties": {
+        "attributions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "claim": {"type": "integer"},
+                    "source": {"type": ["integer", "null"]},
+                },
+                "required": ["claim", "source"],
+            },
+        }
+    },
+    "required": ["attributions"],
+}
+
+
+def parse_attributions(raw: str, n_claims: int, n_sources: int) -> dict[int, int | None]:
+    """Validate a typed attribution reply against the slate that was actually shown.
+
+    The schema constrains shape, never truth: `{"source": 64}` is valid JSON and a
+    fabricated citation. Both failures this project has recorded are of exactly that
+    kind — a source number welded onto an invented provision, and a Policy Manual
+    footnote copied into an answer where it is in range but points elsewhere. So a
+    number outside 1..n_sources degrades to "unsupported" rather than to a citation.
+    """
+    try:
+        data = json.loads(raw)
+        items = data["attributions"]
+        if not isinstance(items, list):
+            return {}
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {}
+
+    out: dict[int, int | None] = {}
+    for item in items:
+        if not isinstance(item, dict) or "claim" not in item or "source" not in item:
+            continue
+        claim, src = item["claim"], item["source"]
+        if not isinstance(claim, int) or isinstance(claim, bool):
+            continue
+        if not 0 <= claim < n_claims or claim in out:  # first answer wins
+            continue
+        ok = isinstance(src, int) and not isinstance(src, bool) and 1 <= src <= n_sources
+        out[claim] = src if ok else None
+    return out
+
+
+def attribute_claims(
+    claims: list[str], hits: list[Hit], messages: list[dict[str, str]], answer_text: str
+) -> dict[int, int | None]:
+    """Ask which source supports each uncited claim, or none.
+
+    Appends to `messages` rather than rebuilding the prompt. That is not a style
+    choice: the sources are already in the KV cache from generation, so an appended
+    turn re-prefills in ~0.2s instead of ~28s. Measured 1.0s total against 41.6s for
+    the answer itself — rebuild the prefix and it costs a second full prefill.
+    """
+    if not claims or not hits:
+        return {}
+    numbered = "\n".join(f"{i}. {' '.join(c.split())}" for i, c in enumerate(claims))
+    ask = (
+        "For each numbered claim below, say which source number supports it.\n"
+        f"Valid source numbers are 1 to {len(hits)}.\n"
+        "Use null when no listed source supports the claim. Do not guess: null is the "
+        "correct answer whenever the sources do not state it.\n\n"
+        f"CLAIMS:\n{numbered}"
+    )
+    convo = [
+        *messages,
+        {"role": "assistant", "content": answer_text},
+        {"role": "user", "content": ask},
+    ]
+    try:
+        raw = "".join(
+            stream_chat(convo, temperature=0.0, fmt=ATTRIBUTION_SCHEMA)
+        )
+    except Exception:
+        return {}
+    return parse_attributions(raw, len(claims), len(hits))
 
 
 def verify_dates(
