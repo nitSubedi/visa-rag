@@ -703,6 +703,56 @@ says so.
 **A citation test failing after `visa refresh` is the freshness mechanism working.** Read
 the diff, then check whether the change is in force before acting on it.
 
+**12. A warning in the prompt does not stop a 7b quoting enjoined law. Suspended
+provisions have to leave the slate, not be annotated in it.**
+
+Measured 2026-09-28 on `opt_filing_window`, which went 3/3 this morning to **0/3** after
+the corpus refresh. The deterministic dates were present and correct:
+
+```
+COMPUTED DEADLINES … Post-completion OPT filing window: 2027-02-13 → 2027-07-13
+                     note: also within 30 days of the DSO's SEVIS recommendation
+in prompt: True
+```
+
+The answer ignored them:
+
+> [8 CFR 214.1(m)(1)] You may file ... **on or before March 18, 2027**, as long as you are
+> properly maintaining F-1 status **on or before September 15, 2026** ... you are **not
+> required to file** ... Form I-539
+
+All three are artefacts of the enjoined rule. 2026-09-15 is the date it was to take
+effect; the I-539 carve-out is part of what the court blocked; 2027-03-18 appears in no
+source and in no computed window — it is invented.
+
+**And this run had the register note active.** An A/B on `qwen2.5:7b`, register on versus
+a deliberately empty register, scored **9/16 both ways with identical per-scenario
+misses**. So the note is free, and it is also ineffective: 228 tokens of "do not state
+these as current law" placed in the tail lost to ~8,000 tokens of topically perfect
+retrieved passage. Annotation does not beat evidence at this model size.
+
+**Two separate defects, and they compound:**
+1. *Suspended text is retrievable and quotable.* `214.1(m)` and `214.2(f)` carry the
+   enjoined provisions and are exactly on-topic for an OPT filing question, so retrieval
+   surfaces them strongly and the model prefers them to a warning.
+2. *`covers()` over-matches.* The register names `214.2(f)(5)`, `(f)(7)`, `(f)(11)`, but
+   the corpus cites at paragraph level — `8 CFR § 214.2(f)` is the whole F-1 paragraph,
+   including filing rules that were never enjoined. Any sub-paragraph in the register
+   therefore condemns all of `(f)`. This is the over-warning failure
+   `test_cpt_guidance_is_not_swept_up_by_the_injunction` was written against; that test
+   only guards a *different* citation, not a coarser one, so it passed while the defect
+   shipped.
+
+**The fix has to remove the material, not label it.** Keep enjoined chunks out of the
+prompt entirely, while keeping them listed in the sources panel marked SUSPENDED so
+`/sources N` still prints them — nothing hidden from the user, nothing quotable by the
+model. Note the CLI is less exposed than the evals suggest: it prints Python's dates
+directly, runs `verify_dates`, and shows the NOT IN FORCE banner. The prose is still
+wrong, and the prose is what people read.
+
+**Do not read finding 11's register as sufficient.** It makes the situation visible. It
+does not make the answer right.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
