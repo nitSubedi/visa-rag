@@ -371,12 +371,49 @@ def _answer_once(
                 border_style="cyan",
             )
         )
+    # verify_grounding reports how many claims cite nothing. That is a count, and a
+    # count is not actionable: the reader still has to work out whether each claim is
+    # supported somewhere in the slate or not supported at all. Ask instead, and fall
+    # back to the count only when attribution cannot run.
+    claims = ans.uncited_claims(text) if settings.attribute_claims else []
+    attributed: dict[int, int | None] = {}
+    if claims:
+        with c.status("[dim]checking what supports each claim…[/dim]"):
+            attributed = ans.attribute_claims(claims, hits, msgs, text)
     problems = (
         ans.verify_citations(text, hits)
         + ans.verify_dates(text, hits=hits)
         + ans.verify_dialogue(text)
-        + ans.verify_grounding(text)
+        + ([] if attributed else ans.verify_grounding(text))
     )
+    if attributed:
+        lines = []
+        for i, claim in enumerate(claims):
+            if i not in attributed:
+                continue
+            src = attributed[i]
+            head = " ".join(claim.split())[:74]
+            if src is None:
+                lines.append(f"[red]no source states this[/red] — \"{head}…\"")
+            else:
+                lines.append(
+                    f"[yellow][{src}][/yellow] {hits[src - 1].row.citation} "
+                    f"— \"{head}…\""
+                )
+        if lines:
+            unsupported = sum(1 for v in attributed.values() if v is None)
+            c.print(
+                Panel(
+                    "\n".join(f"· {x}" for x in lines),
+                    title="[yellow]claims the answer did not cite[/yellow]",
+                    subtitle=(
+                        f"[red]{unsupported} supported by no source[/red]"
+                        if unsupported
+                        else "[dim]each traced to a source — check with /sources N[/dim]"
+                    ),
+                    border_style="red" if unsupported else "yellow",
+                )
+            )
     if problems:
         c.print(
             Panel(

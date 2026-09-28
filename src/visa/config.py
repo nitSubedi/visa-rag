@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
     # Re-measure if `embed_model` changes; the floor is model-specific.
     min_score: float = 0.62
+    # After answering, ask which source supports each claim that cites none, accepting
+    # "nothing does" as an answer. Costs one appended turn — ~10% of answer time, since
+    # the sources are already in the KV cache. Off makes answers faster and quieter
+    # about what they cannot support.
+    attribute_claims: bool = True
     chunk_tokens: int = 700
     chunk_overlap: int = 80
 
