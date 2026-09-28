@@ -44,12 +44,13 @@ def by_cite(rows):
 CASES = [
     (
         "8 CFR § 214.2(f)",
-        # "duration of status" was a content marker here until the 2026-09-18 edition.
-        # It is now wrong law: (f)(5) was retitled "Period of stay" and F-1 students are
-        # admitted for a fixed period not to exceed 4 years. The marker is the concept
-        # the paragraph is *about*, so it has to track the paragraph — but keep both
-        # phrasings visible, because this test failing on a refresh is the freshness
-        # mechanism working, not a regression to paper over.
+        # "duration of status" was the marker here until the 2026-09-18 edition retitled
+        # (f)(5) to "Period of stay". This test asserts what the eCFR *contains*, so the
+        # marker tracks the fetched text — it is not a statement about operative law.
+        # And the operative law is the opposite: the fixed-period rule is enjoined
+        # nationwide (Presidents' Alliance v. DHS, D. Mass., 2026-09-14) and duration of
+        # status still governs. See STATE.md finding 11; the eCFR does not encode
+        # injunctions, so the corpus being current does not mean it is in force.
         ["period of stay", "practical training", "60 day"],
         ["specialty occupation", "representatives of information media"],
     ),

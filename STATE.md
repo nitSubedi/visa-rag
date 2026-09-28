@@ -652,38 +652,56 @@ examples or a post-check that flags uncited claims are the untried options.
 
 ---
 
-**11. F-1 duration of status is gone — and `dates.py` has not caught up.**
-The 2026-09-28 refresh pulled 8 CFR edition **2026-09-18** (`amended_on` the same day,
-upstream current as of 2026-09-24) and `tests/test_citations.py` failed, correctly.
-214.2(f)(5) was **"Duration of status"**; it is now:
+**11. The corpus can be legally current and operationally wrong, with every freshness
+indicator green. This is the most dangerous failure mode found so far.**
+
+The 2026-09-28 refresh pulled 8 CFR edition **2026-09-18** and `test_citations.py`
+failed. 214.2(f)(5) was **"Duration of status"**; the fetched text reads:
 
 > **Period of stay** — (i) *General.* An F-1 student is admitted for a **fixed period of
-> time**, which is the period necessary to complete the course of study indicated on the
-> Form I-20 ... **not to exceed a period of 4 years**.
+> time** ... **not to exceed a period of 4 years**.
 
-"duration of status" no longer appears anywhere under 214.2(f) — 12 chunks carried it
-before the refresh, 0 after. The Policy Manual moved with it: 2,443 -> 2,531 chunks.
+"duration of status" no longer appears anywhere under 214.2(f): 12 chunks carried it
+before the refresh, 0 after.
 
-The classification machinery was *not* at fault: every `forbid` assertion still passed,
-so paragraph lettering is intact. The test was asserting a fact about the law that
-stopped being true. **A citation test failing after `visa refresh` is the freshness
-mechanism working.** Read the diff before touching the test.
+**That rule is enjoined and is not the law.** *Presidents' Alliance on Higher Education
+and Immigration v. DHS*, No. 1:26-cv-13799 (D. Mass.), Judge F. Dennis Saylor IV,
+**2026-09-14** — a **nationwide preliminary injunction** entered one day before the rule
+was to take effect on 2026-09-15. Duration of status remains operative for F-1 and J-1,
+and the 60-day grace period survives. Enjoined: fixed I-94 admission periods, the I-539
+extension requirement, the 240-day employment limit, second-program and transfer
+restrictions, the shortened departure period, and the transition provisions. **Not**
+enjoined: SEVP's separate CPT guidance of 2026-08-12 and 2026-08-24, which was issued
+under the existing CPT regulations and does not depend on the D/S framework.
 
-**What this breaks, and is not yet fixed:**
-1. **`dates.py` models no admission expiry.** Every window is computed from
-   `program_end_date`. F-1 status now also ends at a fixed admission date capped at 4
-   years, which can fall *before* program end — a student on a 5-year PhD is the obvious
-   case. The tool cannot currently see that cliff, and it is the kind of date whose
-   omission costs someone their status.
-2. **A new filing requirement is unmodelled.** 214.1(m) now says an F-1 who departs
-   before filing post-completion or STEM OPT and is readmitted with a fixed period of
-   admission must file **both** Form I-765 **and** Form I-539. Nothing in the prompt or
-   the computed deadlines knows this.
-3. **The profile has no field for it.** `visa profile` collects `program_end_date` but
-   not the I-94 admit-until date, so the cliff is not even expressible yet.
+**The architectural problem: the eCFR publishes amended text and encodes nothing about
+litigation status.** So `visa sources` says fresh, `amended_on` is nine days old,
+`upstream_current_as_of` is four days old, every guardrail is green — and the tool would
+tell an F-1 student their status now expires in four years. Staleness at least announces
+itself. This does not.
 
-Do not treat this as a chunker task. It is legal-logic work: a new `Window`, a new
-profile field, and a prompt that distinguishes program end from admission expiry.
+For immigration this is a first-class failure mode, not an edge case: nationwide
+injunctions against immigration rules are routine, and the eCFR will not tell us about
+any of them. **Every guardrail in this project compares the answer to the corpus. None
+of them can see that the corpus itself is not in force.**
+
+The right shape for a fix already exists in the codebase. `needs_live_bulletin()` refuses
+priority-date questions because a cached snapshot answering them confidently is
+dangerous. This is the same shape: a small, hand-maintained register of provisions known
+to be enjoined or stayed, checked at answer time, warning or refusing rather than quoting.
+Hand-maintained is a real cost and has to be honest about going stale — but a wrong
+register entry degrades to an over-cautious warning, while no register degrades to
+confident wrong law.
+
+**Do not build what the previous draft of this finding proposed.** An admission-expiry
+`Window` in `dates.py`, an I-94 admit-until profile field, and an I-539 filing rule would
+all be implementing enjoined law. The test case was updated to look for "period of stay"
+because the chunker must faithfully reflect what the eCFR actually contains — that
+assertion is about chunker correctness, not about operative law, and the comment there
+says so.
+
+**A citation test failing after `visa refresh` is the freshness mechanism working.** Read
+the diff, then check whether the change is in force before acting on it.
 
 ## Conventions
 
