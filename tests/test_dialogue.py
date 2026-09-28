@@ -13,7 +13,12 @@ from __future__ import annotations
 
 import pytest
 
-from visa.answer import trailing_questions, verify_dialogue, verify_grounding
+from visa.answer import (
+    trailing_questions,
+    uncited_claims,
+    verify_dialogue,
+    verify_grounding,
+)
 
 ANSWERED_THEN_ASKED = """\
 You control the entity, so the self-employment bar in [2] governs before anything
@@ -103,3 +108,27 @@ def test_list_items_are_checked_individually() -> None:
     text = "Options:\n- You must file within 60 days [2]\n- You can also work remotely"
     problems = verify_grounding(text)
     assert problems, "an uncited bullet should be caught"
+
+
+# --- uncited_claims: the passages an attribution pass has to ask about ---------
+
+
+def test_uncited_claims_returns_the_passages_themselves() -> None:
+    """verify_grounding reports a count; attributing a claim to a source needs the
+    claim text. Same selection rule, so the two cannot disagree about what counts."""
+    claims = uncited_claims(UNCITED_ADVICE)
+    assert len(claims) == 2
+    assert "24-month extension" in claims[0]
+    assert "E-Verify" in claims[1]
+
+
+def test_uncited_claims_agrees_with_verify_grounding() -> None:
+    """Whatever verify_grounding counts, uncited_claims must list — and vice versa."""
+    for text in (UNCITED_ADVICE, GROUNDED_ADVICE, DESCRIPTIVE_ONLY):
+        flagged = bool(verify_grounding(text))
+        assert bool(uncited_claims(text)) == flagged, text[:40]
+
+
+def test_uncited_claims_is_empty_for_empty_input() -> None:
+    assert uncited_claims("") == []
+    assert uncited_claims("   \n\n  ") == []

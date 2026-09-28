@@ -395,6 +395,21 @@ DEONTIC_RE = re.compile(
 )
 
 
+def uncited_claims(text: str) -> list[str]:
+    """Passages stating what the person must or may do, carrying no bracket.
+
+    Split out from `verify_grounding` because counting them and attributing them need
+    the same selection rule. If the two ever disagreed about what a claim is, the
+    answer-check panel would report a number it could not explain.
+    """
+    blocks = [b.strip() for b in re.split(r"\n\s*\n|\n(?=\s*[-*\u2022]|\s*\d+\.)", text)]
+    return [
+        b
+        for b in blocks
+        if b and DEONTIC_RE.search(b) and not re.search(r"\[\d{1,2}\]", b)
+    ]
+
+
 def verify_grounding(text: str) -> list[str]:
     """Every claim about what this person must or may do has to hang off a source.
 
@@ -406,12 +421,7 @@ def verify_grounding(text: str) -> list[str]:
     This does not catch bad inference. It makes unsupported assertion visible, which
     is the achievable goal.
     """
-    blocks = [b.strip() for b in re.split(r"\n\s*\n|\n(?=\s*[-*\u2022]|\s*\d+\.)", text)]
-    ungrounded = [
-        b
-        for b in blocks
-        if b and DEONTIC_RE.search(b) and not re.search(r"\[\d{1,2}\]", b)
-    ]
+    ungrounded = uncited_claims(text)
     if not ungrounded:
         return []
     return [
