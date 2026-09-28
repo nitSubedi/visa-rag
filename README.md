@@ -115,6 +115,8 @@ python evals/run.py --model qwen2.5:14b     # compare a model
 python evals/run.py --strategy single       # compare retrieval strategy
 ```
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for how the pipeline works and why.
+
 ## Adding your own corpus
 
 Drop a TOML file in `sources/`:
