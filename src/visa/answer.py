@@ -166,7 +166,13 @@ def build_prompt(
     affected = register.affecting(
         [h.row.citation for h in hits], texts=[h.row.text for h in hits]
     )
-    if n := register.note_for_prompt(affected):
+    withheld = [
+        f"[{i}] {h.row.citation}"
+        for i, h in enumerate(hits, 1)
+        if register.suspended(h.row.citation, h.row.text)
+        or register.redact(h.row.citation, h.row.text)[1]
+    ]
+    if n := register.note_for_prompt(affected, withheld):
         facts.append(n)
     # History sits above the facts, never below: profile and deadlines must stay
     # closest to the question, and history is the part that may be dropped.

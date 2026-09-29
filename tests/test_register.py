@@ -407,3 +407,13 @@ def test_the_rules_paragraphs_outside_214_never_reach_the_model() -> None:
         "adjustment of status to lawful permanent resident",
     ):
         assert in_force in served, in_force
+
+
+def test_the_note_names_what_was_withheld_not_the_whole_register() -> None:
+    """Listing every registered provision, with an order to discuss them, pulled an
+    EB-1A answer onto the injunction because one F-1 passage in its slate lost a
+    paragraph. The note names the slots that lost text."""
+    (entry,) = register.load()
+    note = register.note_for_prompt([entry], ["[10] 8 CFR § 214.2(f)"])
+    assert "Withheld from: [10] 8 CFR § 214.2(f)" in note
+    assert "274a.12" not in note and "248.1" not in note

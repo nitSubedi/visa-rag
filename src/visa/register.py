@@ -319,19 +319,29 @@ def affecting(
     return out
 
 
-def note_for_prompt(entries: list[Entry]) -> str:
+def note_for_prompt(entries: list[Entry], withheld: list[str] | None = None) -> str:
     """A block for the prompt, so the model cannot assert law that is not in force.
 
     Placed with the facts rather than the sources: this is not another passage to weigh,
     it overrides passages. Warn rather than refuse — someone needs to see both what the
     text says and that it is enjoined.
+
+    `withheld` names the source slots that actually lost text ("[10] 8 CFR § 214.2(f)").
+    The note used to list every provision in the register instead. Measured: with
+    retrieval and everything else fixed, growing that list from four provisions to eight
+    made an EB-1A answer open with "The D/S framework is suspended" (2/5 checks, from
+    3/5) and cost an OPT filing answer both its dates (1/3, from 3/3) — for one
+    peripheral F-1 passage in each slate. The instruction stays unconditional: made
+    conditional ("if the question turns on it"), it let a question about the enjoined
+    4-year limit itself go unflagged (1/3, from 3/3) with no gain elsewhere.
     """
     if not entries:
         return ""
-    lines = ["NOT IN FORCE — the sources below include provisions a court has suspended."]
+    lines = ["NOT IN FORCE — a court has suspended text in the sources below."]
+    if withheld:
+        lines.append(f"Withheld from: {', '.join(withheld)}")
     for e in entries:
         lines.append(f"· {e.headline()}")
-        lines.append(f"  Provisions: {', '.join(e.provisions)}")
         if e.instead:
             lines.append(f"  What governs instead: {' '.join(e.instead.split())}")
         if e.not_covered:
