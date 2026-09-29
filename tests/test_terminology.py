@@ -1,0 +1,112 @@
+"""The abbreviation map is hard-coded, so every entry has to be provably right."""
+
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
+import pytest
+
+from visa.terminology import TERMS, expand
+
+
+@pytest.fixture(scope="module")
+def corpus_text() -> str:
+    from visa.search import Index
+
+    if not (Path.home() / ".visa" / "corpus" / "8-cfr" / "vectors.npy").exists():
+        pytest.skip("corpus not indexed")
+    return " \n ".join(" ".join(r.text.split()) for r in Index.load().rows).lower()
+
+
+def test_every_entry_carries_a_source_and_a_quote() -> None:
+    for t in TERMS:
+        assert t.source_kind in ("corpus", "uscis"), t.abbr
+        assert t.source and t.quote, t.abbr
+        if t.source_kind == "uscis":
+            assert t.source.startswith("https://www.uscis.gov/"), t.abbr
+
+
+@pytest.mark.parametrize(
+    "term", [t for t in TERMS if t.source_kind == "corpus"], ids=lambda t: t.abbr
+)
+def test_corpus_quotes_are_verbatim(term, corpus_text) -> None:
+    """A corpus-sourced definition must actually be in the corpus, word for word."""
+    assert " ".join(term.quote.split()).lower() in corpus_text, term.quote
+
+
+@pytest.mark.parametrize("term", TERMS, ids=lambda t: t.abbr)
+def test_every_expansion_occurs_in_the_corpus(term, corpus_text) -> None:
+    """An expansion the corpus never uses cannot help retrieval, only distort it."""
+    assert term.expansion.lower() in corpus_text, term.expansion
+
+
+def test_each_expansion_is_grounded_in_its_own_quote_or_the_corpus() -> None:
+    """Guards against an expansion drifting from the definition it cites: every content
+    word of the expansion appears in the quoted definition."""
+    stop = {"and", "or", "the", "of", "in", "for"}
+    for t in TERMS:
+        words = {w for w in re.findall(r"[a-z]+", t.expansion.lower()) if w not in stop}
+        quoted = set(re.findall(r"[a-z]+", t.quote.lower()))
+        missing = words - quoted
+        assert not missing, f"{t.abbr}: {missing} not in its quoted definition"
+
+
+@pytest.mark.parametrize(
+    ("question", "must_contain"),
+    [
+        ("Can I do full-time CPT?", "curricular practical training"),
+        ("i did cpt for a year", "curricular practical training"),
+        ("My OPT ends soon", "optional practical training"),
+        ("Do I meet EB-1A?", "extraordinary ability in the sciences, arts"),
+        ("thinking about eb1a", "extraordinary ability in the sciences, arts"),
+        ("EB-2 NIW for founders", "national interest waiver"),
+        ("O-1A petition", "extraordinary ability in the sciences, education"),
+        ("my I-94 date", "arrival-departure record"),
+    ],
+)
+def test_abbreviations_are_expanded(question: str, must_contain: str) -> None:
+    assert must_contain in expand(question)
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["Can I opt out of this?", "Problems stem from the delay", "I'd rather opt in"],
+)
+def test_ordinary_english_words_are_left_alone(question: str) -> None:
+    """ "opt" and "stem" are words; only their capitalised abbreviations are expanded."""
+    assert expand(question) == question
+
+
+def test_eb1_does_not_swallow_eb1a() -> None:
+    q = expand("EB-1A or EB-1?")
+    assert "extraordinary ability in the sciences, arts" in q
+    assert "outstanding professors or researchers, and multinational" in q
+
+
+def test_dso_does_not_match_inside_pdso() -> None:
+    q = expand("Ask your PDSO")
+    assert "principal designated school official" in q
+    assert q.count("designated school official") == 1
+
+
+def test_expansion_is_idempotent() -> None:
+    once = expand("Can I do full-time CPT during OPT?")
+    assert expand(once) == once
+
+
+def test_the_one_year_cpt_rule_is_now_retrieved() -> None:
+    """The failure this exists for: asked with "CPT", retrieval did not return
+    8 CFR 214.2(f)(10)(i) in its top 300; asked in the regulation's words, rank 1."""
+    from visa.search import Index
+
+    if not (Path.home() / ".visa" / "corpus" / "8-cfr" / "vectors.npy").exists():
+        pytest.skip("corpus not indexed")
+    idx = Index.load()
+    q = expand(
+        "I did 12 months of full-time CPT during my master's. Can I still get "
+        "post-completion OPT?"
+    )
+    hits = idx.search(q, k=12)
+    rule = r"one year or more of full[- ]time curricular practical training"
+    assert any(re.search(rule, " ".join(h.row.text.split()), re.I) for h in hits)
