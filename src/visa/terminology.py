@@ -246,6 +246,13 @@ def expand(query: str) -> str:
 # that names one of them and not the other is not asking about the other, so the
 # other's provisions are set aside. A question naming both keeps both.
 #
+# F-1 and M-1 are the same trap. With the F-1 fixed-period rule enjoined and withheld,
+# the only "fixed period of admission" text left in an F-1 PhD student's slate was M-1's
+# 8 CFR 214.2(m), and the model told them: "Your admission is limited to a period of 3
+# years ... as stated in [2] 8 CFR § 214.2(m)". The Policy Manual covers F and M in the
+# same chapters, so only sections whose own heading is M-only are set aside; mixed
+# sections ("An F-1 or M-1 student ...") stay.
+#
 # Each provision is identified by its own heading, checked against the corpus in
 # tests/test_terminology.py; the one heading not in the corpus is quoted from its URL.
 
@@ -256,6 +263,7 @@ class Scope:
     pattern: str  # how the classification is recognised in a question
     provisions: tuple[tuple[str, str], ...]  # (citation prefix, its heading, verbatim)
     source: str
+    group: str  # scopes are siblings only within a group
 
 
 SCOPES: tuple[Scope, ...] = (
@@ -268,6 +276,7 @@ SCOPES: tuple[Scope, ...] = (
         ),
         # "the EB-1A extraordinary ability immigrant visa classification"
         STEM_PATHWAYS,
+        "extraordinary ability",
     ),
     Scope(
         "O-1",
@@ -282,6 +291,51 @@ SCOPES: tuple[Scope, ...] = (
             ),
         ),
         "https://www.uscis.gov/policy-manual/volume-2-part-m",
+        "extraordinary ability",
+    ),
+)
+
+_M1_ONLY_PM = (  # every Part F section headed M-1 or M-2 alone, read from the corpus
+    ("Ch 2, B.2", "2. M-1 Students"),
+    ("Ch 3, A.2", "2. M-1 Students"),
+    ("Ch 3, B.2", "2. M-1 Students"),
+    ("Ch 3, E.2", "2. M-1 Students"),
+    ("Ch 3, F.2", "2. M-1 Students"),
+    ("Ch 4, B", "B. M-1 Students"),
+    ("Ch 5, E", "E. M-1 Practical Training"),
+    ("Ch 7, B", "B. M-1 Students"),
+    ("Ch 8, C.2", "2. M-1 Students"),
+    ("Ch 8, F.2", "2. M-1 Students"),
+    ("Ch 9, D.2", "2. M-2 Dependents"),
+)
+
+SCOPES += (
+    Scope(
+        "F-1",
+        r"\bF-?1\b",
+        (
+            (
+                "8 CFR § 214.2(f)",
+                "Students in colleges, universities, seminaries, conservatories, "
+                "academic high schools, elementary schools",
+            ),
+        ),
+        "8 CFR 214.2(f), heading",
+        "student",
+    ),
+    Scope(
+        "M-1",
+        r"\bM-?1\b",
+        (
+            (
+                "8 CFR § 214.2(m)",
+                "Students in established vocational or other recognized nonacademic "
+                "institutions",
+            ),
+            *((f"USCIS PM Vol 2, Pt F, {sec}", head) for sec, head in _M1_ONLY_PM),
+        ),
+        "8 CFR 214.2(m), heading; Policy Manual Vol 2, Part F section headings",
+        "student",
     ),
 )
 
@@ -289,13 +343,21 @@ _SCOPE_RX = tuple((s, re.compile(s.pattern, re.IGNORECASE)) for s in SCOPES)
 
 
 def under(citation: str, prefix: str) -> bool:
-    """True if `citation` is `prefix` or one of its parts. "Ch 2" is not "Ch 20"."""
-    return citation == prefix or citation.startswith((f"{prefix},", f"{prefix}("))
+    """True if `citation` is `prefix` or one of its parts. "Ch 2" is not "Ch 20", and
+    "Ch 4, B" is not "Ch 4, BB" — but it is "Ch 4, B.1"."""
+    return citation == prefix or citation.startswith(
+        (f"{prefix},", f"{prefix}(", f"{prefix}.")
+    )
 
 
 def excluded(query: str) -> tuple[str, ...]:
-    """Citation prefixes of sibling classifications the query did not ask about."""
+    """Citation prefixes of sibling classifications the query did not ask about: within
+    a group, if the query names some members, the others are set aside."""
     named = {s.name for s, rx in _SCOPE_RX if rx.search(query)}
-    if not named:
-        return ()
-    return tuple(p for s in SCOPES if s.name not in named for p, _ in s.provisions)
+    groups = {s.group for s in SCOPES if s.name in named}
+    return tuple(
+        p
+        for s in SCOPES
+        if s.group in groups and s.name not in named
+        for p, _ in s.provisions
+    )

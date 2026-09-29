@@ -186,3 +186,28 @@ def test_o1_retrieves_its_own_provision_not_eb1a(index) -> None:
     hits = index.search(expand(q), k=12, exclude=excluded(q))
     assert any(under(h.row.citation, "8 CFR § 214.2(o)") for h in hits)
     assert not any(under(h.row.citation, "8 CFR § 204.5(h)") for h in hits)
+
+
+def test_sibling_groups_are_independent() -> None:
+    """Naming F-1 must not set EB-1A or O-1 law aside — they are not its siblings."""
+    x = excluded("I'm an F-1 student. Do I meet EB-1A?")
+    assert "8 CFR § 214.2(m)" in x and "8 CFR § 214.2(o)" in x
+    assert "8 CFR § 204.5(h)" not in x and "8 CFR § 214.2(f)" not in x
+    assert not any(p.startswith("8 CFR § 214.2(o)") for p in excluded("F-1 OPT"))
+
+
+def test_mixed_policy_manual_sections_are_kept() -> None:
+    """Part F covers F and M together; a section about both must survive an F-1 query."""
+    x = excluded("F-1 question")
+    kept = ("USCIS PM Vol 2, Pt F, Ch 8, D", "USCIS PM Vol 2, Pt F, Ch 3, C.1")
+    assert not any(under(c, p) for c in kept for p in x)
+
+
+def test_an_f1_student_is_not_given_the_m1_fixed_period(index) -> None:
+    """The failure this exists for: with the F-1 fixed-period rule withheld as enjoined,
+    an F-1 PhD student was told their admission was limited to 3 years "as stated in
+    8 CFR § 214.2(m)" — the M-1 rule."""
+    q = "I'm an F-1 student starting a 5-year PhD. Is my admission limited to 4 years?"
+    hits = index.search(expand(q), k=12, exclude=excluded(q))
+    assert not any(under(h.row.citation, "8 CFR § 214.2(m)") for h in hits)
+    assert not any(under(h.row.citation, "USCIS PM Vol 2, Pt F, Ch 4, B") for h in hits)
