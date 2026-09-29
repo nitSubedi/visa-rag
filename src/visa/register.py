@@ -140,7 +140,7 @@ def _path() -> Path:
     fetched = settings.register / "injunctions.toml"
     if fetched.exists():
         return fetched
-    return settings.source_defs / "injunctions.toml"
+    return settings.register_defs / "injunctions.toml"
 
 
 _CACHE: list[Entry] | None = None

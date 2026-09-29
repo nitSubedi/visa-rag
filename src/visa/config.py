@@ -120,6 +120,13 @@ class Settings(BaseSettings):
     def source_defs(self) -> Path:
         return Path(__file__).resolve().parents[2] / "sources"
 
+    @property
+    def register_defs(self) -> Path:
+        """The litigation register shipped with the code. Not in `sources/`: that
+        directory is corpus definitions, and load_defs builds a Source from every file
+        in it — putting the register there broke `visa refresh` outright."""
+        return Path(__file__).resolve().parents[2] / "register"
+
     def ensure_dirs(self) -> None:
         for d in (
             self.corpus,

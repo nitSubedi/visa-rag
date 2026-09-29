@@ -272,3 +272,13 @@ def test_the_i_visa_provisions_are_registered_too() -> None:
     hits = register.affecting(["8 CFR § 214.2(i)"], entries)
     assert hits, "214.2(i) carries the enjoined I-visa fixed period"
     assert "214.2(i)" in " ".join(hits[0].provisions)
+
+
+def test_every_corpus_definition_still_loads() -> None:
+    """Regression: the register once lived in sources/, and load_defs builds a Source from
+    every TOML there. `visa refresh`, `visa add --source` and every reindex crashed with
+    "unexpected keyword argument 'entry'", and no test noticed for a day."""
+    from visa.sources import load_defs
+
+    slugs = {s.slug for s in load_defs()}
+    assert {"8-cfr", "uscis-policy-manual", "ina-8usc"} <= slugs
