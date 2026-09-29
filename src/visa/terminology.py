@@ -235,3 +235,67 @@ def expand(query: str) -> str:
         if m:
             out = f"{out[: m.end()]} ({term.expansion}){out[m.end() :]}"
     return out
+
+
+# Sibling classifications whose regulations share their wording. EB-1A (immigrant) and
+# O-1 (nonimmigrant) are both written as "extraordinary ability in the sciences, arts,
+# education, business, or athletics", and both list near-identical evidentiary criteria
+# — so no choice of words separates them, and none did: measured with no expansion and
+# with three different ones, O-1 provisions took 4-7 of 12 slots on every EB-1A
+# question, and 204.5(h)'s "at least three" rule never ranked above O-1's. A question
+# that names one of them and not the other is not asking about the other, so the
+# other's provisions are set aside. A question naming both keeps both.
+#
+# Each provision is identified by its own heading, checked against the corpus in
+# tests/test_terminology.py; the one heading not in the corpus is quoted from its URL.
+
+
+@dataclass(frozen=True)
+class Scope:
+    name: str
+    pattern: str  # how the classification is recognised in a question
+    provisions: tuple[tuple[str, str], ...]  # (citation prefix, its heading, verbatim)
+    source: str
+
+
+SCOPES: tuple[Scope, ...] = (
+    Scope(
+        "EB-1A",
+        r"\bEB-?1A\b",
+        (
+            ("8 CFR § 204.5(h)", "Aliens with extraordinary ability"),
+            ("USCIS PM Vol 6, Pt F, Ch 2", "Chapter 2 - Extraordinary Ability"),
+        ),
+        # "the EB-1A extraordinary ability immigrant visa classification"
+        STEM_PATHWAYS,
+    ),
+    Scope(
+        "O-1",
+        r"\bO-?1[AB]?\b",
+        (
+            ("8 CFR § 214.2(o)", "Aliens of extraordinary ability or achievement"),
+            # Every chapter of Part M is about O classification; the part's own title
+            # is not in the corpus.
+            (
+                "USCIS PM Vol 2, Pt M",
+                "Part M - Nonimmigrants of Extraordinary Ability or Achievement (O)",
+            ),
+        ),
+        "https://www.uscis.gov/policy-manual/volume-2-part-m",
+    ),
+)
+
+_SCOPE_RX = tuple((s, re.compile(s.pattern, re.IGNORECASE)) for s in SCOPES)
+
+
+def under(citation: str, prefix: str) -> bool:
+    """True if `citation` is `prefix` or one of its parts. "Ch 2" is not "Ch 20"."""
+    return citation == prefix or citation.startswith((f"{prefix},", f"{prefix}("))
+
+
+def excluded(query: str) -> tuple[str, ...]:
+    """Citation prefixes of sibling classifications the query did not ask about."""
+    named = {s.name for s, rx in _SCOPE_RX if rx.search(query)}
+    if not named:
+        return ()
+    return tuple(p for s in SCOPES if s.name not in named for p, _ in s.provisions)

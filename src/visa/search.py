@@ -15,7 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import register
+from . import register, terminology
 from .config import settings, tier_weight
 from .embed import embed_query
 from .models import Chunk
@@ -150,6 +150,7 @@ class Index:
         k: int | None = None,
         shards: list[str] | None = None,
         rrf_k: int = 60,
+        exclude: tuple[str, ...] = (),
     ) -> list[Hit]:
         k = k or settings.top_k
         if not self.rows:
@@ -172,6 +173,10 @@ class Index:
         for i, s in fused.items():
             row = self.rows[i]
             if shards and row.shard not in shards:
+                continue
+            # A sibling classification the question did not ask about. See
+            # terminology.SCOPES.
+            if exclude and any(terminology.under(row.citation, p) for p in exclude):
                 continue
             hits.append(
                 Hit(
@@ -210,7 +215,9 @@ class Index:
                 break
         return kept
 
-    def search_many(self, queries: list[str], k: int | None = None) -> list[Hit]:
+    def search_many(
+        self, queries: list[str], k: int | None = None, exclude: tuple[str, ...] = ()
+    ) -> list[Hit]:
         """Retrieve for the question plus its issues and merge.
 
         `queries[0]` is the user's own words; the rest are spotted issues. A plain
@@ -230,7 +237,7 @@ class Index:
         # Each issue retrieves a full slate. Deduplication across issues is heavy —
         # they overlap by design — so retrieving only k/n per issue starves the merge
         # and yields fewer sources than a single pass.
-        ranked = [self.search(q, k=k) for q in queries]
+        ranked = [self.search(q, k=k, exclude=exclude) for q in queries]
 
         merged: list[Hit] = []
         seen: set[str] = set()

@@ -308,18 +308,19 @@ def answer(
     # Search in the law's own words as well as the user's: "EB-1A" and "CPT" appear
     # nowhere in the regulations that govern them. Retrieval only — the prompt is not
     # touched. See terminology.py.
+    exclude = terminology.excluded(query)
     if settings.retrieval == "issues" and looks_situational(query):
         issues = plan_issues(query)
         if issues:
             on_issue(issues)
             merged = index.search_many(
-                [terminology.expand(q) for q in (query, *issues)], k=k
+                [terminology.expand(q) for q in (query, *issues)], k=k, exclude=exclude
             )
             # The gate still applies: decomposition must not become a way for an
             # off-domain question to sneak past the relevance floor.
             return merged, passes_gate(merged), warnings
 
-    hits = index.search(terminology.expand(query), k=k)
+    hits = index.search(terminology.expand(query), k=k, exclude=exclude)
     return hits, passes_gate(hits), warnings
 
 
