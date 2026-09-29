@@ -1,0 +1,18 @@
+{
+ "h1_founder_pays_self":      "S S S S S S S S X S S S X M N S S S N N",
+ "h2_stem_unemployment_left": "U N S S S N",
+ "h3_h1b_not_selected":       "N N U N S S S X U N S U U N",
+ "h4_eb1a_two_criteria":      "N S N S S S S S N U X S X N N",
+ "h5_niw_founder_evidence":   "S S S S S S N S S S S S S S S S N N",
+ "h6_o1_no_peer_group":       "S S S S S U S S X N S S S U S N N",
+ "h7_cpt_full_year":          "U N U N N S U U U S U U",
+ "h8_cos_travel":             "M M M S U N",
+ "h9_priority_date":          "S U U U N S S U U N",
+ "h10_fixed_four_years":      "S N S S S S S S N",
+ "h11_oncampus_hours":        "S S S S X N N N",
+ "h12_i140_fee":              "M U S X X U N",
+ "h13_stem_length":           "S S S N N",
+ "h14_h1b_selection_rate":    "S S S S N S N N",
+ "h15_fica_on_opt":           "N S X S S S N N N S N N N N N",
+ "h16_school_opt_fee":        "U S X U U X S S S S X X M S X S U N"
+}

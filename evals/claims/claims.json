@@ -1,0 +1,1358 @@
+[
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 0,
+  "sent": "The STEM OPT extension period is granted for 24 consecutive months, beginning the day after the initial post-completion OPT expires, regardless of the date of adjudication [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 1,
+  "sent": "The key requirement for STEM OPT is that the student must be a \u201cbona fide employee\u201d of the employer [1, 4].",
+  "cites": [
+   1,
+   4
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 2,
+  "sent": "The USCIS and DHS review the training plan to ensure the student\u2019s employment is genuine and aligns with the training objectives [1, 4].",
+  "cites": [
+   1,
+   4
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 3,
+  "sent": "The regulations and guidance [1, 2, 4, 6, 8] state that the employer must provide compensation to the STEM OPT student commensurate with that provided to similarly situated U.S. workers.",
+  "cites": [
+   1,
+   2,
+   4,
+   6,
+   8
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 4,
+  "sent": "This includes ensuring the compensation is not unreasonably low and that it aligns with industry standards for similar roles in comparable companies [1, 4, 5, 8].",
+  "cites": [
+   1,
+   4,
+   5,
+   8
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 5,
+  "sent": "The employer must also attest that the student will not replace a full or part-time, temporary, or permanent U.S. worker [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 6,
+  "sent": "The guidance specifically addresses the situation of entrepreneurs and small businesses [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 7,
+  "sent": "It is permissible for an F-1 student to participate in a startup or small business, provided that all regulatory requirements are met, including the provision of compensation that is commensurate with that provided to similarly situated U.S. workers [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 8,
+  "sent": "However, the student cannot be the employer [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 9,
+  "sent": "The employer must complete Section 3 to Section 6 on the Form I-983 and provide a signature on the STEM OPT student\u2019s annual self-evaluation [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 10,
+  "sent": "The STEM Designated Degree Program List includes fields of study in engineering, biological sciences, mathematics, and physical sciences [3].",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 11,
+  "sent": "The key factor is whether the degree is in a qualifying STEM field [8].",
+  "cites": [
+   8
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 12,
+  "sent": "The 8 CFR \u00a7 214.2(f) states that a student may be authorized for 12 months of practical training, and becomes eligible for another 12 months of practical training when they change to a higher educational level [8].",
+  "cites": [
+   8
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 13,
+  "sent": "The USCIS PM Vol 2, Pt F, Ch 5, C.2 states that an F-1 student may not request a start date that is more than 60 days after the student\u2019s program end date [12].",
+  "cites": [
+   12
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 14,
+  "sent": "Given your situation \u2013 co-founding a startup and wanting to be paid mostly in equity \u2013 this raises a significant concern.",
+  "cites": []
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 15,
+  "sent": "While it\u2019s permissible for an F-1 student to participate in a startup, the compensation *must* be commensurate with that provided to similarly situated U.S. workers [1, 4, 5, 8].",
+  "cites": [
+   1,
+   4,
+   5,
+   8
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 16,
+  "sent": "Simply paying yourself mostly in equity without a corresponding salary could be viewed as a violation of this requirement, particularly if the equity value is significantly lower than what a comparable U.S. worker would receive.",
+  "cites": []
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 17,
+  "sent": "The employer\u2019s attestation on the Form I-983 will be scrutinized to ensure the arrangement is bona fide and meets the requirements [1, 4].",
+  "cites": [
+   1,
+   4
+  ]
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 18,
+  "sent": "What fact would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h1_founder_pays_self",
+  "i": 19,
+  "sent": "**The specific compensation you are offering yourself \u2013 the actual dollar amount \u2013** because DHS and USCIS will assess whether it aligns with industry standards for similar roles and experience levels in comparable companies.",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 0,
+  "sent": "The student has 150 days of unemployment eligibility remaining, as allowed by 8 CFR \u00a7 214.2(f)(10)(ii)(E).",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 1,
+  "sent": "The student has already used 70 days of unemployment during the initial OPT period and 40 days since the STEM OPT extension began.",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 2,
+  "sent": "The remaining allowance is 150 - 110 = 40 days.",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 3,
+  "sent": "End date of OPT employment authorization ends on the date of denial.",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 4,
+  "sent": "If the Form I-765 for the STEM OPT extension is denied and the student\u2019s post-completion OPT EAD is expired, OPT employment authorization ends on the date of the decision and the student\u2019s F-1 status ends 60 days after the date of denial.",
+  "cites": []
+ },
+ {
+  "slug": "h2_stem_unemployment_left",
+  "i": 5,
+  "sent": "What is the student\u2019s current employer\u2019s E-Verify status?",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 0,
+  "sent": "The student\u2019s F-1 status, with an OPT end date of 2026-11-13, dictates their options.",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 1,
+  "sent": "The key provision governing this situation is [2] 8 CFR \u00a7 214.2(f) and [1] USCIS PM Vol 2, Pt F, Ch 5, C.3.",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 2,
+  "sent": "The student\u2019s OPT extension application must be filed within the STEM OPT extension filing window, which opens on 2026-08-15 and closes on 2026-11-13 [OPEN \u2014 45 days remaining].",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 3,
+  "sent": "This is determined by [1] USCIS PM Vol 2, Pt F, Ch 5, C.3, section 3.3.",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 4,
+  "sent": "The student\u2019s degree must be STEM-eligible, as defined by [2] 8 CFR \u00a7 214.2(f)(10)(ii)(C) and [4] stem-opt-extension-overview.html.",
+  "cites": [
+   2,
+   4
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 5,
+  "sent": "The student\u2019s post-completion OPT EAD, if expired, will terminate employment authorization on the date of the denial of the STEM OPT extension, as detailed in [5] USCIS PM Vol 2, Pt F, Ch 5, C.5.",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 6,
+  "sent": "The grace period after the OPT ends is 60 days, beginning on 2026-11-14 and ending on 2027-01-12 [opens in 46 days].",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 7,
+  "sent": "This is governed by [2] 8 CFR \u00a7 214.2(f)(5)(iv).",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 8,
+  "sent": "During this grace period, the student\u2019s F-1 status will end 60 days after the date of denial, as stated in [5] USCIS PM Vol 2, Pt F, Ch 5, C.5.",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 9,
+  "sent": "The student\u2019s options are limited.",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 10,
+  "sent": "Because the degree is not STEM-eligible, the student cannot pursue a 24-month STEM OPT extension.",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 11,
+  "sent": "The student\u2019s only recourse is to apply for a standard post-completion OPT extension, which is limited to 12 months, as outlined in [2] 8 CFR \u00a7 214.2(f).",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 12,
+  "sent": "The student must file the Form I-765 for this extension before the 60-day grace period expires.",
+  "cites": []
+ },
+ {
+  "slug": "h3_h1b_not_selected",
+  "i": 13,
+  "sent": "What is the student\u2019s degree field?",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 0,
+  "sent": "The case is governed by [3] and [4].",
+  "cites": [
+   3,
+   4
+  ]
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 1,
+  "sent": "The petitioner seeks EB-1A status based on \u201calien of extraordinary ability\u201d under 8 U.S.C. \u00a7 203(b)(1)(A) and 8 CFR \u00a7 204.5(h).",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 2,
+  "sent": "The petitioner is an F-1 student in computer science.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 3,
+  "sent": "[3] USCIS PM Vol 6, Pt F, Ch 2, B.2 states that evidence of extraordinary ability must include \u201csustained national or international acclaim and that his or her achievements have been recognized in the field of expertise.\u201d The petitioner\u2019s publications and journal reviews are relevant, but the policy manual emphasizes that the petitioner must \u201cshow that the person has not only been invited to judge the work of others, but also that the person actually participated in the judging of the work of others in the same or allied field of specialization.\u201d The petitioner\u2019s activities as a peer reviewer for journals are examples of this participation, but the petitioner must demonstrate *actual* participation, not just invitation.",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 4,
+  "sent": "The petitioner must show that the person has not only been invited to judge the work of others, but also that the person actually participated in the judging of the work of others in the same or allied field of specialization.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 5,
+  "sent": "[4] 8 CFR \u00a7 204.5(h)(3) requires a petition for an alien of extraordinary ability to be accompanied by evidence of \u201csustained national or international acclaim and that his or her achievements have been recognized in the field of expertise.\u201d This regulation specifically requires \u201cevidence of a one-time achievement (that is, a major, international recognized award), or at least three of the following: (vi) Evidence of the alien's authorship of scholarly articles in the field, in professional or major trade publications or other major media.\u201d The petitioner\u2019s lack of awards and media coverage is a significant deficiency.",
+  "cites": [
+   4
+  ]
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 6,
+  "sent": "The petitioner must demonstrate sustained acclaim, and the absence of awards or media recognition weakens the argument for extraordinary ability.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 7,
+  "sent": "The petitioner\u2019s publications alone, without additional evidence of acclaim, are insufficient.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 8,
+  "sent": "The petitioner\u2019s status as an F-1 student is relevant to the duration of status (D/S) regulations.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 9,
+  "sent": "As suspended, the 60-day grace period for departing F-1 students is no longer in effect.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 10,
+  "sent": "The petitioner must comply with SEVP regulations regarding the end of their program and any restrictions on continued study or employment.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 11,
+  "sent": "The petitioner must demonstrate that their publications and peer reviews meet the criteria for sustained national or international acclaim.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 12,
+  "sent": "The petitioner must provide additional evidence to establish this acclaim, such as citations, recognition from professional organizations, or invitations to speak at conferences.",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 13,
+  "sent": "What would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h4_eb1a_two_criteria",
+  "i": 14,
+  "sent": "Whether the petitioner can provide evidence of citations to their publications in scholarly databases (e.g., Google Scholar, Web of Science) that demonstrate the impact and recognition of their work.",
+  "cites": []
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 0,
+  "sent": "The petitioner must demonstrate qualification for the underlying EB-2 visa classification as either a member of the professions holding an advanced degree or an individual of exceptional ability in the sciences, arts, or business [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 1,
+  "sent": "USCIS evaluates all of the evidence in the aggregate; not every piece of evidence necessarily establishes eligibility [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 2,
+  "sent": "To establish eligibility for the national interest waiver, the petitioner has the burden of demonstrating that: The person qualifies as either a member of the professions holding an advanced degree or as a person of exceptional ability; and The waiver of the job offer requirement, and thus, the labor certification requirement, is in the \u201cnational interest.\u201d [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 3,
+  "sent": "The petitioner seeking a waiver of the job offer must not only demonstrate eligibility for the classification, but also demonstrate that the waiver itself is in the national interest [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 4,
+  "sent": "Specifically, in the exceptional ability context, the INA requires that all petitions for a person of exceptional ability show that the person\u2019s presence in the United States would substantially benefit the national economy, cultural or educational interests, or welfare of the United States in the future [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 5,
+  "sent": "USCIS may also make other minor technical, stylistic, and conforming changes consistent with this update [4].",
+  "cites": [
+   4
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 6,
+  "sent": "Based on the provided sources, the following evidence helps demonstrate that the petitioner is well-positioned to substantially assist with the startup\u2019s growth and success:",
+  "cites": []
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 7,
+  "sent": "*   **Resume or Curriculum Vitae (CV):** This document outlines the petitioner\u2019s education, skills, and experience [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 8,
+  "sent": "*   **Letters from Relevant Government Agencies, Qualified Investors, or Established Business Associations:** These letters can attest to the petitioner\u2019s knowledge, skills, and experience [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 9,
+  "sent": "*   **News Articles or Other Similar Evidence Indicating Recognition:** Demonstrating recognition of the startup or the founder\u2019s work can bolster the argument [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 10,
+  "sent": "*   **Documentation Showing Invitation to Start-up Accelerators:** Participation in reputable accelerators suggests a supportive ecosystem and access to resources [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 11,
+  "sent": "*   **Documentation Showing Active Role in Prior Start-up Entities or Other Relevant Business Entities:** Evidence of past entrepreneurial success is highly relevant [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 12,
+  "sent": "*   **Degrees or Other Documentation Indicating Knowledge, Skills, or Experience:** This directly supports the petitioner\u2019s ability to advance the endeavor [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 13,
+  "sent": "*   **Documentation Pertaining to Intellectual Property:** Patents or other IP demonstrate innovation and expertise [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 14,
+  "sent": "USCIS evaluates all of the evidence in the aggregate, and that the list of suggested evidence for entrepreneurs is not intended to suggest that any one piece, by itself, necessarily establishes eligibility [4].",
+  "cites": [
+   4
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 15,
+  "sent": "USCIS reviews all of the person\u2019s education, experience, and skills when determining eligibility [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 16,
+  "sent": "What fact would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h5_niw_founder_evidence",
+  "i": 17,
+  "sent": "Would the startup have received any government grants or awards?",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 0,
+  "sent": "The facts settle that the petitioner must obtain a written advisory opinion from a peer group, labor, or management organization with expertise in the specific field involved [1, 2].",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 1,
+  "sent": "However, the regulations provide specific pathways for obtaining this opinion, particularly when a traditional peer group doesn\u2019t exist [1, 2].",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 2,
+  "sent": "Specifically, 8 CFR \u00a7 214.2(o)(5)(i)(E) and (G) addresses the situation where a standard peer group is unavailable [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 3,
+  "sent": "This section dictates that if the petitioner establishes that an appropriate peer group does not exist, USCIS will render a decision based on the evidence of record [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 4,
+  "sent": "Furthermore, 8 CFR \u00a7 214.2(p)(7)(i) mandates a consultation with an appropriate labor organization for P-1, P-2, and P-3 petitions [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 5,
+  "sent": "This requirement applies regardless of whether a traditional peer group exists.",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 6,
+  "sent": "The USCIS Policy Manual (USCIS PM) Vol 2, Pt M, Ch 7, B.4, reinforces this, stating that a statutorily mandated consultation process exists for all O nonimmigrant petitions and that the source and contents vary depending on the type of O petition [3].",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 7,
+  "sent": "It clarifies that USCIS will render a decision on the evidence of record if no appropriate peer group exists [3].",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 8,
+  "sent": "Additionally, USCIS PM Vol 2, Pt M, Ch 4, A, defines \u201cextraordinary ability\u201d and emphasizes the need for documented achievements [8].",
+  "cites": [
+   8
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 9,
+  "sent": "While it doesn\u2019t directly address the absence of a peer group, it underscores the importance of demonstrating the beneficiary\u2019s qualifications.",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 10,
+  "sent": "The USCIS PM Vol 2, Pt M, Ch 4, F.1, expands on the \u201cfield\u201d concept, allowing for consideration of acclaim and recognition in multiple related occupations [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 11,
+  "sent": "This suggests that even without a traditional peer group, USCIS might consider evidence of recognition within a broader field.",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 12,
+  "sent": "Finally, the USCIS PM Vol 2, Pt M, Ch 2, B, outlines the general eligibility requirements for O-1A petitions, including the need to demonstrate extraordinary ability and continued work in the field [6].",
+  "cites": [
+   6
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 13,
+  "sent": "Therefore, based on these sources, the petitioner *does* need to provide an advisory opinion, even if a traditional peer group doesn\u2019t exist.",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 14,
+  "sent": "The regulations (8 CFR \u00a7 214.2(o)(5)(i)(E) and (G)) and the USCIS PM explicitly state that USCIS will adjudicate the petition without a peer group opinion if the petitioner establishes that no appropriate peer group exists [1, 3].",
+  "cites": [
+   1,
+   3
+  ]
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 15,
+  "sent": "What fact would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h6_o1_no_peer_group",
+  "i": 16,
+  "sent": "Would the petitioner be able to demonstrate that a comparable group exists in a related field, even if it isn't a formal \"labor organization\" as defined by USCIS?",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 0,
+  "sent": "The F-1 student can still request post-completion OPT.",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 1,
+  "sent": "Here\u2019s the breakdown of the relevant provisions and the decision:",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 2,
+  "sent": "**Decision:** The student is eligible for post-completion OPT, despite having previously received 12 months of pre-completion OPT.",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 3,
+  "sent": "**Governing Provision:** [2] USCIS PM Vol 2, Pt F, Ch 5, C.",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 4,
+  "sent": "F-1 Student Optional Practical Training \u2014 and [4] USCIS PM Vol 2, Pt F, Ch 5, A.2 CPT.",
+  "cites": [
+   4
+  ]
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 5,
+  "sent": "*   **Overtime Calculation:** [2] states that OPT usage is calculated based on the period of OPT authorized, not considering overtime or periods of unemployment.",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 6,
+  "sent": "*   **Reduction of Remaining Time:** Because the student previously received 12 months of pre-completion OPT, the total remaining OPT time available is reduced by 6 months.",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 7,
+  "sent": "This is calculated as follows: 12 months (authorized post-completion OPT) - 6 months (previously authorized pre-completion OPT) = 6 months.",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 8,
+  "sent": "*   **No Impact of Change in Degree Level:** [2] clarifies that a student\u2019s authorization for post-completion OPT is not affected by a change to a higher educational level.",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 9,
+  "sent": "*   **General Eligibility:** [1] and [2] confirm that an F-1 student may be authorized up to 12 months of practical training, and becomes eligible for another 12 months of practical training when they change to a higher educational level.",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 10,
+  "sent": "**Key Fact:** The student previously received 12 months of pre-completion OPT.",
+  "cites": []
+ },
+ {
+  "slug": "h7_cpt_full_year",
+  "i": 11,
+  "sent": "**Question:** What is the remaining amount of OPT time available to the student? 6 months.",
+  "cites": []
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 0,
+  "sent": "USCIS PM Vol 2, Pt F, Ch 8, A.5 governs this situation [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 1,
+  "sent": "If a nonimmigrant student travels abroad while their COS application is pending, USCIS considers that COS application abandoned [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 2,
+  "sent": "The regulations prohibit re-admission to the United States in F-1 status more than 30 days before the report date or program start date listed on the Form I-20 [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 3,
+  "sent": "Given that your H-1B change of status application is pending, traveling abroad for two weeks will likely result in the abandonment of your COS application.",
+  "cites": []
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 4,
+  "sent": "USCIS will not process your application for F-1 status upon re-entry [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h8_cos_travel",
+  "i": 5,
+  "sent": "What is the date listed on the Form I-20?",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 0,
+  "sent": "Based on the provided sources, the current priority date cutoff for EB-2 applicants from India is determined by the Visa Bulletin.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 1,
+  "sent": "**Current Priority Date Cutoff:** As of November 2, 2023, the priority date cutoff for EB-2 applicants from India is **June 1, 2021**.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 2,
+  "sent": "This information is derived from [4] USCIS PM Vol 6, Pt E, Ch 7, G.1, which references the Visa Bulletin.",
+  "cites": [
+   4
+  ]
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 3,
+  "sent": "The Visa Bulletin is published monthly by the Department of State and indicates the dates on which EB-2 and EB-3 petitions become current for each country.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 4,
+  "sent": "**Key Provisions Relevant to the Answer:**",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 5,
+  "sent": "*   **8 CFR \u00a7 245.11(b)(i):** This regulation outlines the process for determining priority dates for family members of S nonimmigrant applicants.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 6,
+  "sent": "The relevant portion specifies that qualified family members can use the principal nonimmigrant\u2019s priority date when it becomes current.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 7,
+  "sent": "*   **USCIS PM Vol 6, Pt E, Ch 7, G.1:** This source explicitly states that the priority date cutoff is determined by the Visa Bulletin.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 8,
+  "sent": "**Important Note:** The Visa Bulletin is updated monthly, so this information is current as of the date of this response.",
+  "cites": []
+ },
+ {
+  "slug": "h9_priority_date",
+  "i": 9,
+  "sent": "**Question:** What is the date of birth of the beneficiary?",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 0,
+  "sent": "The court has suspended [n] 8 CFR \u00a7 214.2(f) regarding the duration of status for F-1 students.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 1,
+  "sent": "[n] USCIS PM Vol 2, Pt F, Ch 3, F.1 governs.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 2,
+  "sent": "The court enjoined the DHS and ICE from implementing the rule that would have limited an F-1 student\u2019s stay to four years for a five-year PhD program.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 3,
+  "sent": "The duration of status (D/S) continues to govern F-1, J-1, and I admission.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 4,
+  "sent": "This means your admission is not limited to four years.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 5,
+  "sent": "[n] USCIS PM Vol 2, Pt F, Ch 3, F.1 states that an F-1 student taking a reduced course load must still be taking at least 6 semester or quarter hours or half the clock hours required for a full course of study.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 6,
+  "sent": "If you fail to carry a full-course load unless authorized by DSO in accordance with 8 CFR 214.2(f)(6)(iii), the student has failed to maintain a valid F-1 status.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 7,
+  "sent": "[n] USCIS PM Vol 2, Pt F, Ch 5, C.2 addresses OPT, stating that an F-1 student may be authorized up to 12 months of practical training, and becomes eligible for another 12 months of practical training when they change to a higher educational level.",
+  "cites": []
+ },
+ {
+  "slug": "h10_fixed_four_years",
+  "i": 8,
+  "sent": "What is the student\u2019s degree program?",
+  "cites": []
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 0,
+  "sent": "Based on the provided sources, an F-1 student can work on campus up to 20 hours per week while classes are in session.",
+  "cites": []
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 1,
+  "sent": "[1], [2], [6] This is governed by 8 CFR \u00a7 214.2(f)(9)(i).",
+  "cites": [
+   1,
+   2,
+   6
+  ]
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 2,
+  "sent": "The USCIS Policy Manual (USCIS PM) Vol 2, Pt F, Ch 6, A and Vol 2, Pt F, Ch 6, C.1 also confirm this 20-hour limit.",
+  "cites": []
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 3,
+  "sent": "[2], [3] The Policy Manual also addresses situations where the Secretary of Homeland Security might suspend this limitation due to emergent circumstances, requiring a demonstration of economic hardship and DSO notation on the I-20.",
+  "cites": [
+   2,
+   3
+  ]
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 4,
+  "sent": "[3] The 1-year requirement for off-campus work authorization after one full academic year is also relevant, but doesn\u2019t directly address on-campus hours.",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 5,
+  "sent": "The USCIS PM Vol 7, Pt B, Ch 6, B addresses unauthorized employment and the INA 245(c)(2) and (8) bars, but doesn\u2019t change the 20-hour limit for on-campus work.",
+  "cites": []
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 6,
+  "sent": "[10] and [11] address the general rules for determining the validity period of employment authorization documents, but do not alter the permissible hours for on-campus work.",
+  "cites": [
+   10,
+   11
+  ]
+ },
+ {
+  "slug": "h11_oncampus_hours",
+  "i": 7,
+  "sent": "What is the student\u2019s DSO\u2019s designation of their program?",
+  "cites": []
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 0,
+  "sent": "Based on the provided sources, the USCIS filing fee for Form I-140 is $715 [11].",
+  "cites": [
+   11
+  ]
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 1,
+  "sent": "However, this base fee is subject to an additional fee of $4,500 imposed by the Consolidated Appropriations Act of 2016, which is in effect until September 30, 2027 [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 2,
+  "sent": "This additional fee applies to certain L-1A and L-1B petitions [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 3,
+  "sent": "Furthermore, if the Form I-907 (Premium Processing Service) fee is declined or returned, USCIS may revoke the approval of the Form I-140 [10, 11].",
+  "cites": [
+   10,
+   11
+  ]
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 4,
+  "sent": "A key factor is the date of the petition.",
+  "cites": []
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 5,
+  "sent": "The fee is determined as of the priority date, and the Financial Officer Statement (Form I-864 or I-864EZ) is used to demonstrate the petitioner\u2019s ability to pay, though it is not always required [12].",
+  "cites": [
+   12
+  ]
+ },
+ {
+  "slug": "h12_i140_fee",
+  "i": 6,
+  "sent": "What is the petitioner\u2019s priority date for the I-140?",
+  "cites": []
+ },
+ {
+  "slug": "h13_stem_length",
+  "i": 0,
+  "sent": "The STEM OPT extension is for a fixed and uninterrupted period of 24 consecutive months [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h13_stem_length",
+  "i": 1,
+  "sent": "This extension begins the day after the initial post-completion OPT expires, not on the date of adjudication, and ends 24 months thereafter, regardless of the date the actual extension is approved [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h13_stem_length",
+  "i": 2,
+  "sent": "Filing during the cap-gap extension does not change the STEM OPT extension start date [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h13_stem_length",
+  "i": 3,
+  "sent": "What fact would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h13_stem_length",
+  "i": 4,
+  "sent": "Would the student be applying for an extension based on a previously obtained STEM degree?",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 0,
+  "sent": "Based on the provided sources, USCIS will select a sufficient number of unique beneficiaries to meet the H-1B advanced degree exemption numerical limitation.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 1,
+  "sent": "Specifically, 8 CFR \u00a7 214.2(h)(7) outlines the process, stating that USCIS will \u201cweight each unique beneficiary as described in paragraph (h)(8)(iii)(A)(4)(ii) of this section and randomly select the number of unique beneficiaries deemed necessary to meet the H-1B advanced degree exemption numerical limitation.\u201d Furthermore, 8 CFR \u00a7 214.2(h)(4) clarifies that registrations will be counted based on the number of unique beneficiaries who are registered.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 2,
+  "sent": "This process ensures that the selection is based on the number of unique beneficiaries, regardless of how many registrations were submitted for each beneficiary.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 3,
+  "sent": "The selection is made via computer-generated selection based on unique beneficiary.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 4,
+  "sent": "The information regarding the percentage of registrations selected is not explicitly stated in the provided sources.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 5,
+  "sent": "However, the core mechanism is the random selection of unique beneficiaries to meet the numerical limitation.",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 6,
+  "sent": "**Key Provision:** 8 CFR \u00a7 214.2(h)(7)",
+  "cites": []
+ },
+ {
+  "slug": "h14_h1b_selection_rate",
+  "i": 7,
+  "sent": "**Missing Fact:** The exact number of unique beneficiaries registered for the H-1B advanced degree exemption.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 0,
+  "sent": "The F-1 student\u2019s situation is governed by [1] USCIS PM Vol 2, Pt F, Ch 5, C and [10] USCIS PM Vol 2, Pt F, Ch 5, C.4, and [2] USCIS PM Vol 2, Pt F, Ch 5, C.3.",
+  "cites": [
+   1,
+   2,
+   10
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 1,
+  "sent": "The key provision determining this is [1] USCIS PM Vol 2, Pt F, Ch 5, C, which states that OPT can be authorized either prior to completion of the degree program (pre-completion OPT) or following the completion of the degree program (post-completion OPT).",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 2,
+  "sent": "It further states that F-1 students may engage in three types of PT: Curricular Practical Training (CPT); Optional Practical Training (OPT) (pre-completion or post-completion); and Science, Technology, Engineering, and Mathematics Optional Practical Training extension (STEM OPT).",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 3,
+  "sent": "Regarding taxes, [10] USCIS PM Vol 2, Pt F, Ch 5, C.4 clarifies that the F-1 student is responsible for ensuring the DSO receives the F-1 student\u2019s 12-month evaluation and final evaluation no later than 10 days following the conclusion of the reporting period or conclusion of their practical training opportunity, respectively.",
+  "cites": [
+   10
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 4,
+  "sent": "It also states that the student\u2019s employer must fill out a new Form I-983 to report to the DSO any material changes to, or material deviations from, the student\u2019s formal training plan.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 5,
+  "sent": "[2] USCIS PM Vol 2, Pt F, Ch 5, C.3 addresses STEM OPT students, stating that employers must ensure the F-1 student will not replace a full or part-time, temporary, or permanent U.S. worker.",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 6,
+  "sent": "This provision does not address tax obligations.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 7,
+  "sent": "[8 CFR \u00a7 214.2(f)] (regulation) states that students in colleges, universities, seminaries, conservatories, academic high schools, elementary schools, other academic institutions, and in language training programs are subject to specific requirements, but does not address tax obligations.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 8,
+  "sent": "The guidance from [4] reminder-stem-opt-students-must-train-bona-fide-employers.html and [5] employers-and-the-form-i-983.html does not address tax obligations.",
+  "cites": [
+   4,
+   5
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 9,
+  "sent": "The USCIS PM Vol 2, Pt F, Ch 6, D states that an F-1 student who has been offered employment by a recognized international organization must apply for employment authorization from USCIS.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 10,
+  "sent": "This does not address tax obligations.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 11,
+  "sent": "Therefore, based on the available sources, the USCIS PM Vol 2, Pt F, Ch 5, C, and [10] USCIS PM Vol 2, Pt F, Ch 5, C.4, do not address whether the student must pay Social Security and Medicare taxes on OPT wages.",
+  "cites": [
+   10
+  ]
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 12,
+  "sent": "The sources do not settle this point.",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 13,
+  "sent": "What fact would most change your answer?",
+  "cites": []
+ },
+ {
+  "slug": "h15_fica_on_opt",
+  "i": 14,
+  "sent": "Would the student be employed by a recognized international organization?",
+  "cites": []
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 0,
+  "sent": "The student is authorized for pre-completion and/or post-completion OPT as an F-1 student [1, 2, 4, 6].",
+  "cites": [
+   1,
+   2,
+   4,
+   6
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 1,
+  "sent": "The DSO\u2019s recommendation is a critical component of the OPT authorization process [1, 2].",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 2,
+  "sent": "USCIS requires a valid EAD to demonstrate lawful F-1 status during OPT [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 3,
+  "sent": "The student\u2019s university\u2019s international student office may charge fees for services, including issuing the OPT recommendation [7, 11].",
+  "cites": [
+   7,
+   11
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 4,
+  "sent": "However, the student is responsible for ensuring the DSO receives the necessary documentation, including the OPT recommendation [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 5,
+  "sent": "The DSO must enter the OPT recommendation into SEVIS and annotate the Form I-20 [2].",
+  "cites": [
+   2
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 6,
+  "sent": "The USCIS Policy Manual (USCIS PM Vol 2, Pt F, Ch 5, C) states that pre-completion OPT can be completed while school is in session, provided that the training does not exceed 20 hours a week while school is in session [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 7,
+  "sent": "During the student\u2019s annual vacation and at other times when school is not in session, OPT can exceed 20 hours per week if the student is currently enrolled, is eligible for registration, and intends to register for the next term or session [1].",
+  "cites": [
+   1
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 8,
+  "sent": "The Form I-983, \u201cTraining Plan for STEM OPT Students,\u201d is a key document for STEM OPT students [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 9,
+  "sent": "The student must submit a new Form I-983 to the DSO within 10 days of beginning a new practical training opportunity with a new employer [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 10,
+  "sent": "The DSO is responsible for ensuring the student\u2019s SEVIS record is updated [5].",
+  "cites": [
+   5
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 11,
+  "sent": "The regulations at 8 CFR \u00a7 214.2(f) state that students in language training programs are not eligible for OPT [3].",
+  "cites": [
+   3
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 12,
+  "sent": "The USCIS Policy Manual (USCIS PM Vol 7, Pt B, Ch 4) addresses absences from the United States and how they impact OPT [9].",
+  "cites": [
+   9
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 13,
+  "sent": "Time spent outside the United States does not extend the period of authorized OPT [9].",
+  "cites": [
+   9
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 14,
+  "sent": "The fee for filing an I-765 application is governed by 8 CFR part 106 [7].",
+  "cites": [
+   7
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 15,
+  "sent": "The collection of fees for temporary protected status is governed by 8 U.S.C. \u00a7 1254b [11].",
+  "cites": [
+   11
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 16,
+  "sent": "The student\u2019s status is determined by the DSO\u2019s recommendation and the validity of the EAD [1, 2].",
+  "cites": [
+   1,
+   2
+  ]
+ },
+ {
+  "slug": "h16_school_opt_fee",
+  "i": 17,
+  "sent": "What is the university\u2019s specific fee structure for issuing the OPT recommendation?",
+  "cites": []
+ }
+]
