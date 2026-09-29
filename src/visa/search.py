@@ -67,13 +67,19 @@ def tokenize(s: str) -> list[str]:
 # A citation is a subsection; the unit a reader would call "the same law" is the
 # section. Capping only by citation lets one section arrive in pieces.
 SECTION = re.compile(r"^(\d+ (?:CFR|U\.S\.C\.) § [\d.]+)")
+PM_CHAPTER = re.compile(r"^(USCIS PM Vol \S+, Pt \S+, Ch \S+?)(?:,|$)")
 
 
 def section_key(citation: str) -> str:
     """The section a citation belongs to, or the citation itself when it has no
     subsection structure (Policy Manual chapters are already the right unit)."""
     m = SECTION.match(citation.strip())
-    return m.group(1) if m else citation.strip()
+    if m:
+        return m.group(1)
+    # A Policy Manual section ("…, Ch 5, D.3") belongs to its chapter. Without this a
+    # chapter could fill the slate one sub-section at a time — the 204.12 crowding bug.
+    pm = PM_CHAPTER.match(citation.strip())
+    return pm.group(1) if pm else citation.strip()
 
 
 @dataclass

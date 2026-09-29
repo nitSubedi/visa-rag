@@ -336,9 +336,43 @@ H1 = re.compile(r"<h1[^>]*>(.*?)</h1>", re.S | re.I)
 FOOTNOTE = re.compile(r"\s*\[\d{1,3}\]")
 
 
+# Inside a chapter the Manual is divided by its own authors: <h2> "D. National Interest
+# Waiver of Job Offer", <h3> "3. Overview of the Three Prongs". This chunker used to split
+# only on <h1> and pack each chapter by token budget, throwing that structure away — the
+# Dhanasar test landed at word 410 of a 528-word chunk opening in the previous section's
+# preamble, and models below 3B summarised the opening and stopped. Cut where the
+# document already cuts.
+H23 = re.compile(r"<(h[23])[^>]*>(.*?)</\1>", re.S | re.I)
+SECTION_LABEL = re.compile(r"^([A-Z]|\d{1,2})\.\s")
+MIN_SECTION_WORDS = 12  # a heading with a line under it is not a passage
+
+
+def _label(heading: str) -> str:
+    m = SECTION_LABEL.match(heading)
+    return m.group(1) if m else ""
+
+
+def _pm_sections(seg: str) -> list[tuple[str, str, str]]:
+    """(h2, h3, html) for the intro and each sub-section of one chapter's HTML."""
+    marks = list(H23.finditer(seg))
+    out = [("", "", seg[: marks[0].start()] if marks else seg)]
+    h2 = h3 = ""
+    for i, m in enumerate(marks):
+        title = strip_html(m.group(2)).strip()
+        if title:  # the export opens some chapters with an empty <h2> wrapper
+            if m.group(1).lower() == "h2":
+                h2, h3 = title, ""
+            else:
+                h3 = title
+        end = marks[i + 1].start() if i + 1 < len(marks) else len(seg)
+        out.append((h2, h3, seg[m.end() : end]))
+    return out
+
+
 def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
-    """The export is one flat HTML document; hierarchy is carried by sequential
-    <h1> headings (Volume N / Part X / Chapter N)."""
+    """The export is one flat HTML document. Volume / Part / Chapter are sequential
+    <h1> headings; sections and sub-sections inside a chapter are <h2> and <h3>, and each
+    becomes its own citation — "USCIS PM Vol 6, Pt F, Ch 5, D.3"."""
     out: list[Chunk] = []
     for p in paths:
         html = p.read_text(encoding="utf-8", errors="ignore")
@@ -369,18 +403,30 @@ def chunk_uscis_pm(paths: list[Path], src: Source) -> list[Chunk]:
                 cite += f", Pt {pt.group(1).rstrip('-')}"
             if ch:
                 cite += f", Ch {ch.group(1).rstrip('-')}"
-            paras = [x for x in re.split(r"(?<=[.])\s+(?=[A-Z0-9])", body) if x.strip()]
-            for piece, emb in _pack(paras):
-                out.append(
-                    _mk(
-                        f"{cite} — {chap}\n{piece}",
-                        cite,
-                        chap,
-                        src,
-                        path=" > ".join(x for x in (vol, part, chap) if x),
-                        embed_text=_embed_override(piece, emb),
+            for h2, h3, sec_html in _pm_sections(html[e:nxt]):
+                sec = FOOTNOTE.sub("", strip_html(sec_html))
+                if len(sec.split()) < MIN_SECTION_WORDS:
+                    continue
+                a, b = _label(h2), _label(h3)
+                suffix = f"{a}.{b}" if a and b else a or b
+                sec_cite = f"{cite}, {suffix}" if suffix else cite
+                # The heading path rides with the text: split out of its chapter, a
+                # section otherwise stops saying where its rule comes from.
+                heads = " > ".join(x for x in (chap, h2, h3) if x)
+                paras = [
+                    x for x in re.split(r"(?<=[.])\s+(?=[A-Z0-9])", sec) if x.strip()
+                ]
+                for piece, emb in _pack(paras, budget=settings.pm_chunk_tokens):
+                    out.append(
+                        _mk(
+                            f"{sec_cite} — {heads}\n{piece}",
+                            sec_cite,
+                            h3 or h2 or chap,
+                            src,
+                            path=" > ".join(x for x in (vol, part, chap, h2, h3) if x),
+                            embed_text=_embed_override(piece, emb),
+                        )
                     )
-                )
     return out
 
 

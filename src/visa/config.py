@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     # about what they cannot support.
     attribute_claims: bool = True
     chunk_tokens: int = 700
+    # Policy Manual sections are packed tighter. Its concise statement of a test often
+    # closes a long section — the Dhanasar three-prong summary is the last paragraph of a
+    # 403-word section — and models below 3B read the opening of a chunk and stop. Dense X
+    # Retrieval found the largest gain for retrieval units of 100-200 words.
+    pm_chunk_tokens: int = 330
     chunk_overlap: int = 80
 
     # How long a register entry may go unchecked before it is called stale. Shorter
