@@ -806,6 +806,51 @@ was ever computed and the model was scored on deriving September 30 unaided — 
 what deterministic dates exists to prevent. Fixed in `evals/scenarios.py`; the computed
 block now satisfies 2 of that scenario's 3 checks.
 
+**22. The parameter curve, measured cleanly: qwen2.5:3b beats qwen2.5:7b, and there is
+a capability cliff directly below it.** 2026-09-28, frozen tree at `c702a62`, one model at
+a time, `--repeat 3`, nothing else touching Ollama:
+
+```
+model          download  resident   wall   score
+qwen2.5:7b       4.7 GB     5.5G    327s    9/16
+qwen2.5:3b       1.9 GB     2.7G    152s   14/16   (identical on a second full run)
+qwen2.5:1.5b     986 MB     1.5G    160s    4/16
+qwen2.5:0.5b     397 MB     0.7G     61s    5/16
+```
+
+**3b wins on every axis simultaneously** — score, download, resident memory, latency.
+Finding 7 compared 7b against 14b and concluded smaller was better; it never tested
+downward, and the curve keeps improving below 7b. That is what you would expect once the
+architecture carries the load the model used to: retrieval returns the governing
+provision, dates are Python arithmetic, and attribution is a typed question.
+
+**The cliff is between 3b and 1.5b.** Both smaller models score **0/4 on
+`niw_standard`**, missing every *Dhanasar* prong and the source attribution — the one
+scenario that is pure legal-standard reasoning with no computed dates to lean on. 4/16
+versus 5/16 below the cliff is noise.
+
+The default is still `qwen2.5:7b`. Switching it is a separate decision: README install
+instructions and the eval baseline change with it.
+
+**22b. Nothing capped generation, and that — not the model — was the 1.5b "hang".**
+`stream_chat` sent no `num_predict`, so an answer that never emitted an end token ran until
+the 16k context filled: over twenty minutes at 200% CPU inside `evals/run.py`. With
+`num_predict` always set (`answer_reserve_tokens`, and `plan_max_tokens` for planning) the
+same run takes 73 seconds.
+
+Five hypotheses died first — unbounded planning, large-prompt stalls, context-shift
+grinding, swap thrash, and a planning loop — and one of the probes was itself broken:
+`settings` is built at import, so setting `VISA_CHAT_MODEL` after importing `visa` silently
+tested the default model. What found it was running `evals/run.py` under a watchdog that
+dumped the stack every sixty seconds. **Probe the real harness before probing
+reconstructions of it.**
+
+Two harness lessons from the same day, both of which voided a curve run: never commit while
+an eval is running (subprocesses import the live tree), and never kill an Ollama client
+mid-generation — the server auto-sizes to one slot, and the abandoned request holds it
+while every later request queues forever. Clear it by killing the stuck `llama-server`
+worker, not the app.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
