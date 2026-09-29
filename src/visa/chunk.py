@@ -231,6 +231,75 @@ def _toc_letters(el: ET.Element) -> list[tuple[str, str]]:
     return []
 
 
+def _section_paragraphs(
+    el: ET.Element, toc: list[tuple[str, str]]
+) -> tuple[str, list[tuple[str, list[str]]]]:
+    """(heading, [(top-level letter, [paragraph texts])]) for one eCFR section.
+
+    Shared by chunk_ecfr and ecfr_paragraphs so the register's edition diff assigns
+    paragraphs to letters with exactly the logic the chunker uses — a hand-rolled parser
+    mistook the I-visa paragraph (i) for a roman numeral and reported it unchanged.
+    """
+    head = ""
+    expect = 0  # pointer into the TOC sequence
+    paras: list[tuple[str, list[str]]] = []
+    cur_letter = ""
+    group: list[str] = []
+    for child in el.iter():
+        if child.tag == "HEAD" and not head:
+            head = clean("".join(child.itertext()))
+        # eCFR flush paragraphs carry a depth suffix — FP-1, FP-2 — and a
+        # bare "FP" never appears. Matching only ("P", "FP") dropped 1,059
+        # elements of Title 8, which is where enumerated list items live:
+        # 264.1(a) promised a list of registration forms and delivered none.
+        elif child.tag == "P" or child.tag.startswith("FP"):
+            t = clean("".join(child.itertext()))
+            if not t:
+                continue
+            m = re.match(r"^\(([a-z]{1,2})\)\s", t)
+            if m:
+                cand = m.group(1)
+                if toc:
+                    # The letter alone is ambiguous: (h) H-1B is full of roman
+                    # "(i)" sub-paragraphs, and the TOC's next expected letter
+                    # is also "i". So require the body text to actually open
+                    # with the heading the TOC gives for that paragraph.
+                    ok = (
+                        expect < len(toc)
+                        and cand == toc[expect][0]
+                        and _opens_with(t[m.end() :], toc[expect][1])
+                    )
+                    if ok:
+                        expect += 1
+                else:
+                    ok = _next_in_sequence(cur_letter, cand)
+                    # (i), (v) and (x) are both letters and roman numerals.
+                    # Where the preceding text promises a list, they open
+                    # that list rather than a new top-level paragraph.
+                    if ok and cand in ("i", "v", "x") and _promises_a_list(group):
+                        ok = False
+                if not ok:
+                    m = None
+            if m and group:
+                paras.append((cur_letter, group))
+                group = []
+            if m:
+                cur_letter = m.group(1)
+            group.append(t)
+    if group:
+        paras.append((cur_letter, group))
+    return head, paras
+
+
+def ecfr_paragraphs(path: Path) -> dict[str, list[tuple[str, list[str]]]]:
+    """Every section of an eCFR XML file, as its lettered paragraphs."""
+    root = ET.parse(path).getroot()
+    return {
+        el.get("N", "").strip(): _section_paragraphs(el, _toc_letters(el))[1]
+        for el in root.iter("DIV8")
+    }
+
+
 def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
     """One logical unit per CFR section; oversized sections split on top-level
     paragraph letters so (f) Students and (o) Extraordinary ability stay distinct."""
@@ -250,55 +319,8 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
             if el.tag != "DIV8":
                 continue
             sec = el.get("N", "").strip()
-            head = ""
             toc = _toc_letters(el)
-            expect = 0  # pointer into the TOC sequence
-            paras: list[tuple[str, list[str]]] = []
-            cur_letter = ""
-            group: list[str] = []
-            for child in el.iter():
-                if child.tag == "HEAD" and not head:
-                    head = clean("".join(child.itertext()))
-                # eCFR flush paragraphs carry a depth suffix — FP-1, FP-2 — and a
-                # bare "FP" never appears. Matching only ("P", "FP") dropped 1,059
-                # elements of Title 8, which is where enumerated list items live:
-                # 264.1(a) promised a list of registration forms and delivered none.
-                elif child.tag == "P" or child.tag.startswith("FP"):
-                    t = clean("".join(child.itertext()))
-                    if not t:
-                        continue
-                    m = re.match(r"^\(([a-z]{1,2})\)\s", t)
-                    if m:
-                        cand = m.group(1)
-                        if toc:
-                            # The letter alone is ambiguous: (h) H-1B is full of roman
-                            # "(i)" sub-paragraphs, and the TOC's next expected letter
-                            # is also "i". So require the body text to actually open
-                            # with the heading the TOC gives for that paragraph.
-                            ok = (
-                                expect < len(toc)
-                                and cand == toc[expect][0]
-                                and _opens_with(t[m.end() :], toc[expect][1])
-                            )
-                            if ok:
-                                expect += 1
-                        else:
-                            ok = _next_in_sequence(cur_letter, cand)
-                            # (i), (v) and (x) are both letters and roman numerals.
-                            # Where the preceding text promises a list, they open
-                            # that list rather than a new top-level paragraph.
-                            if ok and cand in ("i", "v", "x") and _promises_a_list(group):
-                                ok = False
-                        if not ok:
-                            m = None
-                    if m and group:
-                        paras.append((cur_letter, group))
-                        group = []
-                    if m:
-                        cur_letter = m.group(1)
-                    group.append(t)
-            if group:
-                paras.append((cur_letter, group))
+            head, paras = _section_paragraphs(el, toc)
             if not paras:
                 continue
             heading = re.sub(r"^§+\s*[\d.]+\s*", "", head).strip(" .")
