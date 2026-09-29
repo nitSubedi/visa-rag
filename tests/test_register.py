@@ -80,6 +80,24 @@ def test_entries_report_their_own_age() -> None:
 # --- the note has to reach the prompt, and survive the budget ------------------
 
 
+M_TEXT = (
+    "(m) Transition period from duration of status to a fixed admission date—(1) "
+    "Transition from duration of status for F-1 students"
+)
+
+
+def _amended():
+    """A 214.2(f) chunk carrying a paragraph the enjoined rule actually wrote."""
+    from visa.models import Chunk
+
+    class _H:
+        def __init__(self) -> None:
+            self.row = Chunk(text=F5_TEXT, citation="8 CFR § 214.2(f)", tier=2, shard="t")
+            self.cosine = 0.8
+
+    return _H()
+
+
 def test_the_not_in_force_note_reaches_the_prompt() -> None:
     """A warning the model never sees cannot stop it asserting enjoined law."""
     from visa import answer
@@ -90,7 +108,7 @@ def test_the_not_in_force_note_reaches_the_prompt() -> None:
             self.row = Chunk(text="word " * 300, citation=citation, tier=2, shard="t")
             self.cosine = 0.8
 
-    msgs = answer.build_prompt("How long am I admitted for?", [_Hit("8 CFR § 214.2(f)")])
+    msgs = answer.build_prompt("How long am I admitted for?", [_amended()])
     body = msgs[1]["content"]
     assert "NOT IN FORCE" in body
     assert "1:26-cv-13799" in body
@@ -107,7 +125,7 @@ def test_the_note_sits_with_the_facts_not_the_sources() -> None:
             self.row = Chunk(text="word " * 300, citation=citation, tier=2, shard="t")
             self.cosine = 0.8
 
-    body = answer.build_prompt("q", [_Hit("8 CFR § 214.2(f)")])[1]["content"]
+    body = answer.build_prompt("q", [_amended()])[1]["content"]
     assert body.index("SOURCES:") < body.index("NOT IN FORCE")
     assert body.index("NOT IN FORCE") < body.index("QUESTION:")
 
@@ -123,7 +141,7 @@ def test_the_note_survives_a_full_source_slate() -> None:
             self.row = Chunk(text="word " * 900, citation=citation, tier=2, shard="t")
             self.cosine = 0.8
 
-    hits = [_Hit("8 CFR § 214.2(f)")] + [_Hit(f"8 CFR § 100.{i}") for i in range(40)]
+    hits = [_amended()] + [_Hit(f"8 CFR § 100.{i}") for i in range(40)]
     body = answer.build_prompt("q", hits)[1]["content"]
     assert "NOT IN FORCE" in body
 
@@ -145,7 +163,8 @@ def test_an_unaffected_question_gets_no_note() -> None:
 
 F5_TEXT = (
     "8 CFR § 214.2(f) — students\n(5) Period of stay—(i) General. An F-1 student is "
-    "admitted for a fixed period of time, not to exceed a period of 4 years."
+    "admitted for a fixed period of time, which is the period necessary to complete the "
+    "course of study indicated on the Form I-20, not to exceed a period of 4 years."
 )
 F4_TEXT = (
     "8 CFR § 214.2(f) — students\n(4) Temporary absence. An F-1 student returning from "
@@ -232,7 +251,7 @@ def test_suspended_text_cannot_support_a_date() -> None:
     from visa import answer
 
     prof = {"status": "F-1", "program_end_date": "2027-05-14"}
-    hits = [_hit("8 CFR § 214.1(m)", "not to exceed December 14, 2026. Aliens who need")]
+    hits = [_hit("8 CFR § 214.1(m)", M_TEXT + " not to exceed December 14, 2026.")]
     problems = answer.verify_dates("you may file by 2026-12-14.", prof=prof, hits=hits)
     assert problems, "a date supported only by suspended text must still be flagged"
     assert "2026-12-14" in problems[0]
@@ -282,3 +301,70 @@ def test_every_corpus_definition_still_loads() -> None:
 
     slugs = {s.slug for s in load_defs()}
     assert {"8-cfr", "uscis-policy-manual", "ina-8usc"} <= slugs
+
+
+def test_an_ordinary_214_2_f_chunk_is_not_suspended() -> None:
+    """The regression that hid the law: every 214.2(f) chunk carrying a "(11)" marker was
+    withheld, taking the in-force E-Verify rule and unemployment limits with it. Only a
+    chunk that contains a paragraph the rule wrote may be suspended."""
+    from visa import answer
+    from visa.models import Chunk
+
+    class _H:
+        def __init__(self, t: str) -> None:
+            self.row = Chunk(text=t, citation="8 CFR § 214.2(f)", tier=2, shard="t")
+            self.cosine = 0.8
+
+    ordinary = "word " * 300
+    assert register.suspended("8 CFR § 214.2(f)", ordinary) is None
+    body = answer.build_prompt("q", [_H(ordinary)])[1]["content"]
+    assert "NOT IN FORCE" not in body and "SUSPENDED" not in body
+
+
+def _corpus():
+    from pathlib import Path
+
+    from visa.search import Index
+
+    if not (Path.home() / ".visa" / "corpus" / "8-cfr" / "vectors.npy").exists():
+        pytest.skip("corpus not indexed")
+    return Index.load(), register.load()
+
+
+def _flat(t: str) -> str:
+    return " ".join(t.split())
+
+
+def test_the_in_force_stem_rules_reach_the_model() -> None:
+    """The regression that hid the law. Registering whole paragraphs withheld 27 of 65
+    chunks of 214.2(f), including the only chunks carrying the E-Verify rule and the
+    unemployment limits. The unemployment rule shares a chunk with an amended paragraph,
+    so it survives only if redaction removes that paragraph and nothing more."""
+    idx, entries = _corpus()
+    f = [r for r in idx.rows if r.citation.strip() == "8 CFR § 214.2(f)"]
+    for phrase in ("E-Verify", "Periods of unemployment during post-completion OPT"):
+        carriers = [r for r in f if phrase in _flat(r.text)]
+        assert carriers, phrase
+        for r in carriers:
+            assert not register.suspended(r.citation, r.text, entries), phrase
+            kept, _ = register.redact(r.citation, r.text, entries)
+            assert phrase in _flat(kept), f"{phrase!r} was redacted"
+
+
+def test_the_enjoined_text_never_reaches_the_model() -> None:
+    """The other direction: the rule's own paragraphs — the fixed period in (f)(5),
+    extension of stay in (f)(7), the I-visa 240-day period — are cut out wherever they
+    appear, whether or not the rest of the chunk survives."""
+    idx, entries = _corpus()
+    for phrase in (
+        "An F-1 student is admitted for a fixed period of time",
+        "USCIS may grant an extension of stay to an F-1 student",
+        "consistent with the I classification, not to exceed 240 days",
+    ):
+        carriers = [r for r in idx.rows if phrase in _flat(r.text)]
+        assert carriers, phrase
+        for r in carriers:
+            kept, hit = register.redact(r.citation, r.text, entries)
+            assert hit and phrase not in _flat(kept), (
+                f"{phrase!r} survived in {r.citation}"
+            )

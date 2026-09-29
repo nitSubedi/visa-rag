@@ -157,7 +157,10 @@ def build_prompt(
     # A provision can be in the corpus and suspended by a court. This does not compete
     # with the passages — it overrides them — so it goes in the tail with the facts,
     # where it is un-truncatable and best attended, never in SOURCES.
-    if n := register.note_for_prompt(register.affecting([h.row.citation for h in hits])):
+    affected = register.affecting(
+        [h.row.citation for h in hits], texts=[h.row.text for h in hits]
+    )
+    if n := register.note_for_prompt(affected):
         facts.append(n)
     # History sits above the facts, never below: profile and deadlines must stay
     # closest to the question, and history is the part that may be dropped.
@@ -185,6 +188,7 @@ def build_prompt(
         # tokens of caution lost to ~8,000 tokens of on-topic passage. The slot stays so
         # `/sources N` and verify_citations keep their numbering, and the passage is still
         # printed in the sources panel; the model simply has nothing to quote.
+        text, _ = register.redact(r.citation, r.text, reg)
         if e := register.suspended(r.citation, r.text, reg):
             block = (
                 f"{head}\n[SUSPENDED — withheld] A court has suspended this provision "
@@ -192,7 +196,7 @@ def build_prompt(
                 f"shown. Do not state it as law. Use [n] for other sources."
             )
         else:
-            block = f"{head}\n{r.text}"
+            block = f"{head}\n{text}"
         cost = est_tokens(block)
         if used + cost > budget and source_blocks:
             break
@@ -628,7 +632,8 @@ def verify_dates(
             if 1 <= n <= len(hits)
         ]
         scope = [h for h in cited if h in usable] or usable
-        return "\n".join([computed, *(h.row.text for h in scope)])
+        kept = [register.redact(h.row.citation, h.row.text, reg)[0] for h in scope]
+        return "\n".join([computed, *kept])
 
     problems = []
     for block in blocks(text) or [text]:

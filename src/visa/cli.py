@@ -385,7 +385,9 @@ def _answer_once(
     # checks fail that way. These are Python's arithmetic, so print them directly.
     # Loudest thing on screen, and first. Every other check asks whether the answer
     # matches the corpus; this one says the corpus is not the law.
-    if affected := register.affecting([h.row.citation for h in hits]):
+    if affected := register.affecting(
+        [h.row.citation for h in hits], texts=[h.row.text for h in hits]
+    ):
         for entry in affected:
             body = [entry.headline()]
             if entry.court:

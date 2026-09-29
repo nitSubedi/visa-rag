@@ -60,6 +60,15 @@ def _mentions(text: str, path: list[str], depth: int) -> bool:
     return re.search(rf"\({re.escape(marker)}\)\s*[A-Z(]", text) is not None
 
 
+FINGERPRINT_CHARS = 90
+
+
+def fingerprint(paragraph: str) -> str:
+    """The opening of a paragraph, whitespace-normalised: enough to identify it in a
+    chunk, short enough to survive chunk boundaries cutting the paragraph's tail."""
+    return " ".join(paragraph.split())[:FINGERPRINT_CHARS]
+
+
 def covers(provision: str, citation: str, text: str | None = None) -> bool:
     """Does a registered provision reach the passage a chunk was cited under?
 
@@ -88,13 +97,108 @@ def covers(provision: str, citation: str, text: str | None = None) -> bool:
     return _mentions(text, reg_path, len(cite_path))
 
 
+def _in_scope(citation: str, provisions: tuple[str, ...]) -> bool:
+    """Same title, corpus and section, with one paragraph path a prefix of the other."""
+    return any(covers(p, citation) for p in provisions)
+
+
+MIN_USABLE_WORDS = 25  # below this, what survives redaction is not a passage
+
+
+def _marker(e: Entry) -> str:
+    return f"[SUSPENDED — withheld: {e.case}, {e.docket}]"
+
+
+def redact(
+    citation: str, text: str, entries: list[Entry] | None = None
+) -> tuple[str, list[Entry]]:
+    """Remove the paragraphs a suspended rule wrote, and nothing else.
+
+    Withholding whole chunks could never be precise: 8 CFR is chunked coarsely, and the
+    in-force unemployment rule in 214.2(f) sits in the same chunk as a paragraph the
+    enjoined rule rewrote beside it. So each amended paragraph is cut out of the chunk by
+    its exact span and replaced by a marker, and the rest of the chunk is left intact.
+    A paragraph that runs past the chunk's end is cut to the end.
+    """
+    entries = entries if entries is not None else load()
+    head, sep, body = text.partition("\n")
+    if not sep:
+        head, body = "", text
+    flat = " ".join(body.split())
+    # Match with whitespace removed. The chunker's enumerated split rebuilds a piece as
+    # stem + " " + item, so a chunk reads "stay— (i) Eligibility" where the regulation
+    # reads "stay—(i) Eligibility"; an exact-string fingerprint missed it and the enjoined
+    # extension-of-stay text reached the prompt.
+    sq, pos = _squash(flat)
+    hit: list[Entry] = []
+    for e in entries:
+        if not e.amended or not _in_scope(citation, e.provisions):
+            continue
+        spans: list[tuple[int, int]] = []
+        for para in e.amended:
+            p, _ = _squash(para)
+            head_fp, tail_fp = p[:FINGERPRINT_CHARS], p[-FINGERPRINT_CHARS:]
+            a = sq.find(head_fp)
+            if a >= 0:
+                spans.append((a, min(len(sq), a + len(p))))
+                continue
+            # A split piece carries the *tail* of its stem paragraph without its opening,
+            # so the closing is matched too: cut from the start of the body to its end.
+            b = sq.find(tail_fp)
+            if b >= 0:
+                spans.append((max(0, b + len(tail_fp) - len(p)), b + len(tail_fp)))
+        if not spans:
+            continue
+        hit.append(e)
+        for a, b in _merge(spans)[::-1]:
+            flat = flat[: pos[a]] + _marker(e) + flat[pos[b - 1] + 1 :]
+        sq, pos = _squash(flat)
+    out = f"{head}\n{flat}" if head else flat
+    return out, hit
+
+
+def _squash(s: str) -> tuple[str, list[int]]:
+    """s without whitespace, and for each kept character its index in s."""
+    keep = [(i, ch) for i, ch in enumerate(s) if not ch.isspace()]
+    return "".join(ch for _, ch in keep), [i for i, _ in keep]
+
+
+def _merge(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for a, b in sorted(spans):
+        if out and a <= out[-1][1]:
+            out[-1] = (out[-1][0], max(out[-1][1], b))
+        else:
+            out.append((a, b))
+    return out
+
+
+def _usable_words(text: str) -> int:
+    body = text.partition("\n")[2] or text
+    return len(re.sub(r"\[SUSPENDED — withheld:[^\]]*\]", " ", body).split())
+
+
 def suspended(
     citation: str, text: str | None, entries: list[Entry] | None = None
 ) -> Entry | None:
-    """The order suspending this passage, if any."""
+    """The order that leaves this passage with nothing usable, if any.
+
+    A passage merely *containing* an amended paragraph is not suspended — redact() cuts
+    that paragraph out and the rest still counts as evidence. Without text there is
+    nothing to inspect, so an in-scope citation counts as suspended: quoting suspended
+    law as current is the worse of the two errors.
+    """
     entries = entries if entries is not None else load()
     for e in entries:
-        if any(covers(p, citation, text) for p in e.provisions):
+        if e.amended:
+            if not _in_scope(citation, e.provisions):
+                continue
+            if text is None:
+                return e
+            redacted, hit = redact(citation, text, [e])
+            if hit and _usable_words(redacted) < MIN_USABLE_WORDS:
+                return e
+        elif any(covers(p, citation, text) for p in e.provisions):
             return e
     return None
 
@@ -115,6 +219,13 @@ class Entry:
     not_covered: str
     source_url: str
     checked: dt.date
+    # The full text of every paragraph the enjoined rule wrote, whitespace-normalised.
+    # When present these decide what is redacted, span by span.
+    amended: tuple[str, ...] = ()
+
+    @property
+    def fingerprints(self) -> tuple[str, ...]:
+        return tuple(fingerprint(p) for p in self.amended)
 
     @property
     def age_days(self) -> int:
@@ -178,6 +289,7 @@ def load(path: Path | None = None) -> list[Entry]:
                 not_covered=e.get("not_covered", ""),
                 source_url=e.get("source_url", ""),
                 checked=e["checked"],
+                amended=tuple(" ".join(x.split()) for x in e.get("amended", ())),
             )
         )
     if path is None:
@@ -185,13 +297,23 @@ def load(path: Path | None = None) -> list[Entry]:
     return out
 
 
-def affecting(citations: list[str], entries: list[Entry] | None = None) -> list[Entry]:
-    """Entries touching any of these citations, in register order."""
+def affecting(
+    citations: list[str],
+    entries: list[Entry] | None = None,
+    texts: list[str] | None = None,
+) -> list[Entry]:
+    """Entries that suspend or redact any of these passages, in register order. Pass the
+    texts: without them an entry can only match by section, which over-warns."""
     entries = entries if entries is not None else load()
+    bodies: list[str | None] = (
+        list(texts) if texts is not None else [None] * len(citations)
+    )
     out = []
     for e in entries:
-        if any(covers(p, c) for p in e.provisions for c in citations):
-            out.append(e)
+        for c, t in zip(citations, bodies, strict=True):
+            if suspended(c, t, [e]) or (t is not None and redact(c, t, [e])[1]):
+                out.append(e)
+                break
     return out
 
 
