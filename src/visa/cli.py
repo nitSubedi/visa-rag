@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import answer as ans
-from . import chunk, dates, embed, fetch, profile, register, store
+from . import chunk, dates, embed, fetch, profile, register, rules, store
 from .config import settings, tier_label
 from .models import Chunk, Manifest
 from .search import Hit, Index
@@ -355,7 +355,9 @@ def _answer_once(
             c.print("[dim]Closest passages, for what they're worth:[/dim]")
             _render_hits(hits[:4])
         return [], ""
-    msgs = ans.build_prompt(q, hits, turns=turns)
+    # Decided once: the same findings go into the prompt and onto the screen.
+    decided = ans.decide(q, profile.load())
+    msgs = ans.build_prompt(q, hits, turns=turns, decided=decided)
     c.print()
     buf: list[str] = []
     first = True
@@ -417,6 +419,18 @@ def _answer_once(
                 )
             )
 
+    # A rule the code decided is shown by the code, not left to the model to repeat.
+    if findings := rules.render(decided, head=""):
+        c.print(
+            Panel(
+                findings,
+                title="[green]rule findings[/green]",
+                subtitle="[dim]decided by code from the quoted law and your facts[/dim]",
+                border_style="green",
+            )
+        )
+    for ask in rules.questions(decided):
+        c.print(f"[cyan]? To answer this properly I need to know:[/cyan] {ask}")
     if deadlines := dates.render(profile.load()):
         c.print(
             Panel(

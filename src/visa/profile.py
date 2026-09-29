@@ -22,6 +22,7 @@ stem_extension      = false
 employer            = ""
 i94_expiry          = ""
 prior_filings       = ""          # e.g. "I-765 filed 2026-03-02"
+cpt_full_time_months = ""         # full-time CPT at your current degree level
 goals               = ""          # e.g. "EB-1A / NIW as a startup founder"
 notes               = ""
 """

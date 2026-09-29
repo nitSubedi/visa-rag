@@ -60,21 +60,22 @@ def main() -> int:
         for mod in [m for m in list(sys.modules) if m.startswith("visa")]:
             del sys.modules[mod]
         from visa import answer as ans
-        from visa import dates, profile
+        from visa import dates, profile, rules
         from visa.search import Index
 
         idx = Index.load()
         cells: dict[str, dict[str, int]] = {"prose": {}, "shown": {}}
         for _ in range(args.repeat):
             hits, gated, warnings = ans.answer(sc.question, idx)
+            decided = ans.decide(sc.question, profile.load())
             prose = ""
             if gated:
-                prose = "".join(
-                    ans.stream_chat(ans.build_prompt(sc.question, hits), temperature=0.0)
-                )
+                msgs = ans.build_prompt(sc.question, hits, decided=decided)
+                prose = "".join(ans.stream_chat(msgs, temperature=0.0))
             refusal = "" if gated else ans.GATE_REFUSAL  # what the CLI prints instead
+            findings = rules.render(decided, head="") if gated else ""
             shown = "\n".join(
-                [*warnings, refusal, prose, dates.render(profile.load())]
+                [*warnings, refusal, prose, findings, dates.render(profile.load())]
             )
             saved.setdefault(sc.slug, []).append(
                 {"gated": gated, "warnings": warnings, "prose": prose}

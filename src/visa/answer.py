@@ -9,7 +9,7 @@ import urllib.request
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
-from . import dates, profile, register, terminology
+from . import dates, profile, register, rules, terminology
 from .cites import CFR_SECTION
 from .config import settings, tier_label
 from .search import Hit, Index, passes_gate
@@ -142,6 +142,7 @@ def build_prompt(
     hits: list[Hit],
     prof: dict[str, object] | None = None,
     turns: list[Turn] | None = None,
+    decided: list[rules.Outcome | rules.Needs] | None = None,
 ) -> list[dict[str, str]]:
     """Assemble the prompt, ordered and budgeted so nothing critical is truncated.
 
@@ -160,6 +161,10 @@ def build_prompt(
         facts.append(p)
     if d := dates.render(prof):
         facts.append(d)
+    if decided is None:
+        decided = decide(question, prof)
+    if found := rules.render(decided):
+        facts.append(found)
     # A provision can be in the corpus and suspended by a court. This does not compete
     # with the passages — it overrides them — so it goes in the tail with the facts,
     # where it is un-truncatable and best attended, never in SOURCES.
@@ -742,6 +747,56 @@ def _dedupe(items: list[str]) -> list[str]:
             seen.add(i)
             out.append(i)
     return out
+
+
+RULE_TRIGGER = re.compile(r"\bCPT\b|curricular practical training", re.I)
+
+
+def extract_facts(question: str) -> dict[str, object]:
+    """Pull the facts rules need out of the question — copying a stated number, the
+    one kind of step small models do reliably. Constrained to a schema; anything it
+    cannot find is null, and a null becomes a question to the person, not a guess."""
+    schema: dict[str, object] = {
+        "type": "object",
+        "properties": {f.key: {"type": [f.kind, "null"]} for f in rules.FACTS},
+        "required": [f.key for f in rules.FACTS],
+    }
+    wanted = "\n".join(f"- {f.key}: {f.describe}" for f in rules.FACTS)
+    prompt = (
+        "Extract these facts from the person's message. Use only what the message "
+        f"states; null if it does not state it.\n{wanted}\n\nMESSAGE: {question}"
+    )
+    try:
+        raw = "".join(
+            stream_chat(
+                [{"role": "user", "content": prompt}],
+                temperature=0.0,
+                fmt=schema,
+                max_tokens=settings.plan_max_tokens,
+            )
+        )
+        got = json.loads(raw)
+    except Exception:
+        return {}
+    if not isinstance(got, dict):
+        return {}
+    # Kept only if the person actually said it. See rules._months_stated.
+    return {
+        f.key: got[f.key]
+        for f in rules.FACTS
+        if got.get(f.key) is not None and f.stated(got[f.key], question)
+    }
+
+
+def decide(question: str, prof: dict[str, object]) -> list[rules.Outcome | rules.Needs]:
+    """Rules in play for this question, decided from the profile and the question.
+    Extraction runs only when a rule could apply, so an unrelated question costs no
+    model call. What the question states overrides the profile."""
+    facts: dict[str, object] = dict(prof)
+    if RULE_TRIGGER.search(question):
+        facts["mentions_cpt"] = True
+        facts.update(extract_facts(question))
+    return rules.evaluate(facts)
 
 
 def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[str]:
