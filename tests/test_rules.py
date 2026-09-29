@@ -119,3 +119,89 @@ def test_an_invented_fact_is_dropped_and_asked_for(monkeypatch) -> None:
     )
     (r,) = answer.decide("I did some CPT last year. Can I still get OPT?", {})
     assert isinstance(r, rules.Needs)
+
+
+def _one(facts: dict[str, object]) -> rules.Outcome | rules.Needs:
+    (r,) = [x for x in rules.evaluate(facts) if x.rule == "unemployment_limit"]
+    return r
+
+
+@pytest.mark.parametrize(
+    ("days", "stem", "expect"),
+    [
+        ([70, 40], True, "40 days of unemployment REMAIN of the 150-day"),
+        ([30], False, "60 days of unemployment REMAIN of the 90-day"),
+        ([90], False, "0 days of unemployment REMAIN of the 90-day"),
+        ([60, 40], False, "OVER THE LIMIT: 100 days"),
+        ([100, 60], True, "OVER THE LIMIT: 160 days"),
+    ],
+)
+def test_the_aggregate_is_summed_by_code(days, stem, expect) -> None:
+    o = _one({"unemployment_days": days, "stem_extension": stem})
+    assert isinstance(o, rules.Outcome) and o.decision.startswith(expect), o.decision
+
+
+def test_the_limit_quoted_matches_the_limit_applied() -> None:
+    o = _one({"unemployment_days": [10], "stem_extension": True})
+    assert isinstance(o, rules.Outcome)
+    assert all("150 days" in s.quote for s in o.sources)
+
+
+def test_the_question_saying_stem_beats_a_blank_profile() -> None:
+    o = _one({"unemployment_days": [10], "mentions_stem": True})
+    assert isinstance(o, rules.Outcome) and "150-day" in o.decision
+
+
+def test_unknown_stem_status_is_asked_not_assumed() -> None:
+    n = _one({"unemployment_days": [10]})
+    assert isinstance(n, rules.Needs) and n.fact == "stem_extension"
+
+
+@pytest.mark.parametrize(
+    ("value", "text", "stated"),
+    [
+        ([70, 40], "I had 70 days of unemployment and 40 more days", True),
+        ([70, 40, 10], "I had 70 days of unemployment and 40 more days", False),
+        ([30], "thirty days unemployed? no: I was unemployed for 30 days", True),
+        ([60], "I was unemployed for a while", False),
+        ([60, 35], "unemployed for sixty days, then 35 days", True),
+    ],
+)
+def test_day_counts_count_only_if_stated(value, text, stated) -> None:
+    (fact,) = [f for f in rules.FACTS if f.key == "unemployment_days"]
+    assert fact.stated(value, text) is stated
+
+
+UNEMP = rules.evaluate({"unemployment_days": [70, 40], "stem_extension": True})
+Q2 = "I had 70 days of unemployment and 40 more days since my STEM extension started."
+
+
+@pytest.mark.parametrize(
+    ("prose", "flagged"),
+    [
+        ("80 days.", True),  # the observed answer, whole
+        ("You have 80 days of unemployment left.", True),
+        ("You must depart within 60 days of the end of OPT.", False),  # another period
+        ("You have 40 days of unemployment remaining.", False),
+        ("The student has 150 days of unemployment eligibility remaining.", True),
+        ("You used 70 days and then 40 days of unemployment.", False),
+        ("The limit is 150 days of unemployment.", False),
+    ],
+)
+def test_a_day_count_the_code_did_not_produce_is_flagged(prose, flagged) -> None:
+    assert bool(rules.contradictions(prose, UNEMP, Q2)) is flagged
+
+
+@pytest.mark.parametrize(
+    ("months", "prose", "flagged"),
+    [
+        (12, "You are still eligible for post-completion OPT.", True),
+        (12, "You are ineligible for post-completion OPT.", False),
+        (12, "You cannot get post-completion OPT at this level.", False),
+        (9, "You are not eligible for OPT because of your CPT.", True),
+        (9, "You can still apply for OPT.", False),
+    ],
+)
+def test_a_verdict_the_code_did_not_reach_is_flagged(months, prose, flagged) -> None:
+    decided = rules.evaluate({"cpt_full_time_months": months})
+    assert bool(rules.contradictions(prose, decided)) is flagged

@@ -749,16 +749,26 @@ def _dedupe(items: list[str]) -> list[str]:
     return out
 
 
-RULE_TRIGGER = re.compile(r"\bCPT\b|curricular practical training", re.I)
+# Which rules a question puts in play. Extraction runs only when one matches.
+RULE_TRIGGERS = {
+    "mentions_cpt": re.compile(r"\bCPT\b|curricular practical training", re.I),
+    "mentions_unemployment": re.compile(r"\bunemploy", re.I),
+}
+STEM_EXTENSION = re.compile(r"\bSTEM\b[^.?!]{0,30}\bextension|\bSTEM OPT\b", re.I)
 
 
 def extract_facts(question: str) -> dict[str, object]:
     """Pull the facts rules need out of the question — copying a stated number, the
     one kind of step small models do reliably. Constrained to a schema; anything it
     cannot find is null, and a null becomes a question to the person, not a guess."""
+    def prop(kind: str) -> dict[str, object]:
+        if kind == "array":
+            return {"type": ["array", "null"], "items": {"type": "number"}}
+        return {"type": [kind, "null"]}
+
     schema: dict[str, object] = {
         "type": "object",
-        "properties": {f.key: {"type": [f.kind, "null"]} for f in rules.FACTS},
+        "properties": {f.key: prop(f.kind) for f in rules.FACTS},
         "required": [f.key for f in rules.FACTS],
     }
     wanted = "\n".join(f"- {f.key}: {f.describe}" for f in rules.FACTS)
@@ -793,8 +803,11 @@ def decide(question: str, prof: dict[str, object]) -> list[rules.Outcome | rules
     Extraction runs only when a rule could apply, so an unrelated question costs no
     model call. What the question states overrides the profile."""
     facts: dict[str, object] = dict(prof)
-    if RULE_TRIGGER.search(question):
-        facts["mentions_cpt"] = True
+    hit = {k for k, rx in RULE_TRIGGERS.items() if rx.search(question)}
+    if hit:
+        facts.update(dict.fromkeys(hit, True))
+        if STEM_EXTENSION.search(question):
+            facts["mentions_stem"] = True
         facts.update(extract_facts(question))
     return rules.evaluate(facts)
 

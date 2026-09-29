@@ -71,7 +71,19 @@ _WORDS = {
     "nineteen": 19,
     "twenty": 20,
     "twenty-four": 24,
+    "thirty": 30,
+    "forty": 40,
+    "fifty": 50,
+    "sixty": 60,
+    "seventy": 70,
+    "eighty": 80,
+    "ninety": 90,
+    "hundred": 100,
+    "a hundred": 100,
+    "one hundred": 100,
 }
+# Compounds ("sixty-five") are not read. That fails safe: the number cannot be
+# confirmed, so the rule asks.
 
 
 def _months_stated(value: object, text: str) -> bool:
@@ -89,11 +101,27 @@ def _months_stated(value: object, text: str) -> bool:
     t = text.lower()
     if not re.search(r"full[- ]?time", t):
         return False
-    said = {float(n) for n in re.findall(r"\b\d+(?:\.\d+)?\b", t)}
-    said |= {float(n) for w, n in _WORDS.items() if re.search(rf"\b{w}\b", t)}
+    said = _said_numbers(t)
     if re.search(r"\b(a|one|1) (full |whole )?year\b", t):
         said.add(12.0)
     return v in said
+
+
+def _said_numbers(t: str) -> set[float]:
+    said = {float(n) for n in re.findall(r"\b\d+(?:\.\d+)?\b", t)}
+    return said | {float(n) for w, n in _WORDS.items() if re.search(rf"\b{w}\b", t)}
+
+
+def _days_stated(value: object, text: str) -> bool:
+    """Every day count is one the person wrote, in a message about unemployment."""
+    t = text.lower()
+    if not isinstance(value, list) or not value or "unemploy" not in t:
+        return False
+    said = _said_numbers(t)
+    try:
+        return all(float(str(v)) in said for v in value)
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True)
@@ -112,6 +140,13 @@ FACTS: tuple[Fact, ...] = (
         "have done at their current degree level. 'a year' = 12. Null if not stated, "
         "or if the CPT was part-time.",
         _months_stated,
+    ),
+    Fact(
+        "unemployment_days",
+        "array",
+        "Each number of days of unemployment the person says they have had during OPT "
+        "or STEM OPT, one entry per period they mention. Null if they state none.",
+        _days_stated,
     ),
 )
 
@@ -171,8 +206,82 @@ def _cpt_decide(f: dict[str, object]) -> Outcome | Needs:
     )
 
 
+# --- the aggregate unemployment limit ----------------------------------------------
+
+UNEMPLOYMENT_SOURCES = (
+    Source(
+        "8 CFR § 214.2(f)(10)(ii)(E)",
+        "Students may not accrue an aggregate of more than 90 days of unemployment "
+        "during any post-completion OPT period described in 8 CFR 274a.12(c)(3)(i)(B).",
+    ),
+    Source(
+        "8 CFR § 214.2(f)(10)(ii)(E)",
+        "may not accrue an aggregate of more than 150 days of unemployment during a "
+        "total OPT period, including any post-completion OPT period described in 8 CFR "
+        "274a.12(c)(3)(i)(B) and any subsequent 24-month extension period.",
+    ),
+)
+
+
+def _unemployment_applies(f: dict[str, object]) -> bool:
+    return bool(f.get("mentions_unemployment")) or bool(f.get("unemployment_days"))
+
+
+def _on_stem(f: dict[str, object]) -> bool | None:
+    """From the question if it says so, else the profile; None if neither does."""
+    if f.get("mentions_stem"):
+        return True
+    v = f.get("stem_extension")
+    return v if isinstance(v, bool) else None
+
+
+def _unemployment_decide(f: dict[str, object]) -> Outcome | Needs:
+    rule = "unemployment_limit"
+    days = f.get("unemployment_days")
+    if not isinstance(days, list) or not days:
+        return Needs(
+            rule,
+            "unemployment_days",
+            "How many days of unemployment have you had in total during OPT (and STEM "
+            "OPT, if you are on it)?",
+        )
+    stem = _on_stem(f)
+    if stem is None:
+        return Needs(rule, "stem_extension", "Are you on a 24-month STEM OPT extension?")
+    limit = 150 if stem else 90
+    used = sum(float(str(d)) for d in days)
+    parts = " + ".join(f"{float(str(d)):g}" for d in days)
+    total = f"{parts} = {used:g}" if len(days) > 1 else f"{used:g}"
+    period = (
+        "a total OPT period including a STEM extension" if stem else "post-completion OPT"
+    )
+    if used > limit:
+        decision = (
+            f"OVER THE LIMIT: {used:g} days of unemployment exceeds the {limit}-day "
+            f"aggregate allowed during {period}."
+        )
+    else:
+        decision = (
+            f"{limit - used:g} days of unemployment REMAIN of the {limit}-day aggregate "
+            f"allowed during {period}."
+        )
+    return Outcome(
+        rule,
+        decision,
+        f"days used: {total}; limit {limit} ({'on' if stem else 'not on'} a STEM "
+        f"extension).",
+        UNEMPLOYMENT_SOURCES[1:] if stem else UNEMPLOYMENT_SOURCES[:1],
+    )
+
+
 RULES: tuple[Rule, ...] = (
     Rule("cpt_full_time_year", _cpt_applies, _cpt_decide, CPT_SOURCES),
+    Rule(
+        "unemployment_limit",
+        _unemployment_applies,
+        _unemployment_decide,
+        UNEMPLOYMENT_SOURCES,
+    ),
 )
 
 
@@ -210,3 +319,71 @@ def render(results: list[Outcome | Needs], head: str = PROMPT_HEAD) -> str:
 def questions(results: list[Outcome | Needs]) -> list[str]:
     """What the person must be asked before a rule in play can be decided."""
     return [r.question for r in results if isinstance(r, Needs)]
+
+
+_SENT = re.compile(r"(?<=[.!?])\s+|\n+")
+_NEGATED = re.compile(
+    r"\b(ineligible|not eligible|cannot|can't|isn't|is not|are not|aren't|no longer)\b",
+    re.I,
+)
+
+
+def contradictions(
+    text: str, results: list[Outcome | Needs], question: str = ""
+) -> list[str]:
+    """Where the model's prose disagrees with what the code decided.
+
+    Told the finding and told never to reverse it, gemma3:4b still answered the
+    held-out unemployment question "80 days." with "40 days ... REMAIN" in its prompt
+    — it redid the arithmetic and dropped the second period. Wording will not make a
+    4b reliable at restating, so the disagreement is detected and shown instead. A
+    number or a verdict the code did not produce, stated about the thing a rule
+    decided, is reported against the finding."""
+    out: list[str] = []
+    sents = [s.strip() for s in _SENT.split(text) if s.strip()]
+    for r in results:
+        if not isinstance(r, Outcome):
+            continue
+        if r.rule == "unemployment_limit":
+            allowed = _said_numbers(f"{r.decision} {r.because} {question}".lower())
+            m = re.match(r"(\d+(?:\.\d+)?) days", r.decision)  # None when over the limit
+            remainder = float(m.group(1)) if m else None
+            for s in sents:
+                # Every day count, except in sentences plainly about another period:
+                # the observed error was the whole answer, "80 days.", with no
+                # unemployment word to scope on.
+                if re.search(
+                    r"grace|depart|window|fil(e|ing)|recommend|travel|abroad|report|"
+                    r"within|before|after the",
+                    s,
+                    re.I,
+                ):
+                    continue
+                # About what is left, only the computed remainder is right: "150 days
+                # ... remaining" used the limit, a number the question also contains.
+                about_left = bool(re.search(r"remain|\bleft\b", s, re.I))
+                for n in re.findall(r"\b(\d+)\s+(?:more\s+|remaining\s+)?days?\b", s):
+                    wrong_left = (
+                        about_left and remainder is not None and float(n) != remainder
+                    )
+                    if float(n) not in allowed or wrong_left:
+                        out.append(
+                            f'the answer says "{n} days"; the rule computed: {r.decision}'
+                        )
+        elif r.rule == "cpt_full_time_year":
+            barred = r.decision.startswith("INELIGIBLE")
+            for s in sents:
+                if not re.search(r"eligib|\bOPT\b", s):
+                    continue
+                if not re.search(
+                    r"eligible|can (still )?(get|apply|request|do)", s, re.I
+                ):
+                    continue
+                says_barred = bool(_NEGATED.search(s))
+                if says_barred != barred:
+                    head = " ".join(s.split())[:90]
+                    out.append(
+                        f'the answer says "{head}"; the rule decided: {r.decision}'
+                    )
+                    break
+    return out
