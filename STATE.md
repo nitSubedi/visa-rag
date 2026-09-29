@@ -1,8 +1,11 @@
 # Project state — visa-rag
 
-**Last updated:** 2026-09-28
+**Last updated:** 2026-09-29
 **Status:** v1 working end-to-end, plus stages 1-3 of the reasoning/dialogue spec.
-Retrieval and eval-determinism work of 2026-09-09 is merged to `main`.
+Branch `pm-sections` (unmerged) carries Policy Manual heading chunks, the complete
+injunction register, sibling-classification scopes and the held-out evals — findings
+23-29. **Not shippable as an advisor:** a claim-level audit finds about two wrong
+statements per answer (finding 28); the plan to fix that is finding 29.
 Stage 4 (persisted situation model) and v2 (sharing/packaging) not started.
 
 ---
@@ -851,6 +854,109 @@ mid-generation — the server auto-sizes to one slot, and the abandoned request 
 while every later request queues forever. Clear it by killing the stuck `llama-server`
 worker, not the app.
 
+**23. The held-out set, and what it says about the diagnosis it was built to test.**
+`evals/heldout.py`: written 2026-09-28 before any change it judges, never tuned against,
+every check labelled copy / derive / restate / attribute / behave. The diagnosis was that
+failures concentrate in *derive* and *restate*. Half right. On gemma3:4b, final tree of
+2026-09-29: copy 30/34, derive 14/18, **restate 4/4**, attribute 4/4, behave 18/28.
+Restating Python's dates is solved — deterministic dates did their job. Deriving (applying
+a rule to the user's facts) is the weakest content category, and finding 28 shows it is
+worse than the checks say. gemma3:4b beat qwen2.5:3b on the original ten, 53 vs 44 of 64,
+and is the model under development.
+
+**24. The law never says "CPT" or "EB-1A", and sibling classifications share their
+wording.** Two retrieval failures with one shape.
+- *Abbreviations.* "EB-1A", "EB-2", "NIW", "O-1A" appear in none of the 6,391 regulation
+  chunks. Asked with "CPT", the one-year rule was not in the top 300; asked in the
+  regulation's words, rank 1. `terminology.py` expands abbreviations in the retrieval query
+  only, every entry sourced and its quote checked verbatim against the corpus (`f04888b`).
+- *Siblings.* EB-1A (8 CFR 204.5(h)) and O-1 (214.2(o)) are both "extraordinary ability in
+  the sciences, arts, education, business, or athletics" with near-identical criteria. No
+  query wording separated them — measured with no expansion and three different ones, O-1
+  took 4-7 of 12 slots on every EB-1A question. F-1 (214.2(f)) and M-1 (214.2(m)) are the
+  same trap: with the F-1 fixed-period rule withheld as enjoined, an F-1 PhD student was
+  told "Your admission is limited to a period of 3 years ... as stated in 8 CFR §
+  214.2(m)". A question naming one sibling now sets the other's provisions aside
+  (`terminology.SCOPES`, `21ed143`, `3fc4805`), each identified by its own heading. For
+  F/M only Policy Manual sections headed M-only are excluded; mixed ones stay.
+- **One slot was enough.** The F/M overlap measured "1 of 12 slots" and was waved through as
+  minor. That slot produced the most harmful answer of the week. Measure the answer, not
+  the slot count.
+
+**25. Gemma's "The sources I have don't cover this" was our sentence, not its judgment.**
+Rule 1 quoted it verbatim; gemma3:4b opened 18 of 20 answers with it, including ones it
+then answered correctly, and answered the unemployment question with nothing else — the
+150-day rule at position 2 in its sources. Proved on a fixed retrieval, varying only the
+rule: quoted sentence, every answer opens with it; reworded, none do (`40d0f6b`). Gemma has
+no system role and Ollama renders ours as a separate user turn; folding it into the first
+user turn is Google's documented format and measured **neutral** (`fc652c7`) — kept for
+correctness, not for a score.
+
+**26. The injunction register served half the enjoined rule as law, and its note derailed
+unrelated answers.**
+- The rule's amendatory instructions (FR Doc. 2026-14439, 91 FR 44976) amend four
+  sections; the register had two. 248.1(e) — the 4-year readmission cap itself — 248.1(f)
+  and three 274a.12 paragraphs were live (`a7e0a2d`). Found by diffing all of Title 8
+  between editions and attributing every change, then confirming against the Federal
+  Register. **Check a rule's reach against its amendatory instructions, not against the
+  sections you expected it to touch.**
+- It could not have worked anyway: four regexes read section numbers as `[\d.]+`, so
+  "274a.12" parsed as "274" and no entry could ever match a lettered section (448 CFR and
+  267 U.S.C. chunks). One shared pattern, `visa/cites.py` (`e8bc0a4`).
+- The note listed every registered provision. Growing that list from 4 to 8, everything
+  else fixed, made an EB-1A answer open with "The D/S framework is suspended" and cost an
+  OPT answer both its dates. It now names only the slots that lost text (`2eadf51`).
+- Making its instruction conditional ("if the question turns on it") let the 4-year
+  question itself go unflagged; a small rewording of the unconditional sentence did the
+  same in a full run. **On a 4b, a tested sentence is kept word for word.**
+
+**27. The eval instrument was wrong more often than the model was, in ways that hid
+problems.** h8 required "the sources don't cover this" for travel during a pending change
+of status; the Policy Manual covers it (Vol 2, Pt F, Ch 8, A.5, in force since before the
+rule). The old passes were the stock sentence of finding 25 matching a wrong check. Regex
+checks misjudged read answers seven times in one day — correct answers failed ("24
+consecutive months", "not explicitly stated in the provided sources"), fabrications passed
+("The student is not required to pay Social Security and Medicare taxes"). Each is
+corrected and logged in `heldout.py`, and refusal is now scored both ways (h11-h16:
+answerable vs verifiably unanswerable, each absence checked against the served corpus)
+(`1653fa0`). **Totals are a pointer to where to read, never a result.**
+
+**28. A claim-level audit: about two wrong statements per answer, and no checker a 4b can
+run catches them.** Every sentence of the 16 held-out answers (188) labelled against the
+passages the model actually had: 92 supported, 48 not claims, 15 unverifiable, **27
+unsupported, 6 miscited**. Most unsupported claims are not invented text — they are wrong
+applications in the sources' own vocabulary: 12 months of full-time CPT treated as
+pre-completion OPT ("the student is eligible for post-completion OPT"); the L-1 $4,500 fee
+applied to an I-140; the STEM filing window given to a non-STEM student; the register note
+inverted ("the 60-day grace period ... is no longer in effect"); self-contradiction.
+
+```
+checker                            flags   recall   precision
+word overlap < 0.6                   55    19/27      35%
+novel words or numbers               59    16/27      27%
+gemma3:4b as support judge           29     9/27      31%
+miscitation rule*                     7    4/6 M     1 false in 60 S
+```
+\* cited source overlaps < 0.35 while another source overlaps >= 0.3 more.
+
+Lexical checks fail because wrong claims reuse source words; the model-as-judge fails
+because verifying a legal application is the same skill it lacks when writing one — it
+approved its own CPT arithmetic and rejected correct ones. Only miscitation is catchable
+deterministically. Labels and scripts are not yet in the repo.
+
+**29. We were iterating in a circle, and the way out is architectural.** Held-out, same
+ten scenarios, corrected h8: **53/64 in the morning, 54/64 at night**, after nine commits.
+Every fix above was real and stays — but each prompt change moved one scenario and broke
+another, because the failures are reasoning errors (28) and wording cannot fix reasoning.
+Decision, 2026-09-29: the model stops being the decider.
+1. **Deterministic rules** for the high-stakes computable questions (CPT year, unemployment
+   days, grace, cap-gap, STEM windows, fixed-period status), each cited to its provision,
+   the way `dates.py` already made *restate* 100%.
+2. **Follow-up questions** that collect the facts those rules need instead of guessing.
+3. **Citations-first answers**: verbatim quotes checked by code, the model's application
+   labelled as such.
+4. A **narrow v0.1** — F-1 / OPT / STEM OPT / cap-gap — done reliably, then packaged.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
@@ -946,11 +1052,20 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   legal provisions. Design agreed, spec not yet written.
 - AAO/adopted decisions as a tier-4 source (how adjudicators reason on close calls).
 
-**Deliberately excluded**
-- **Visa Bulletin.** Monthly and volatile — the July 2026 edition reports India EB-2
-  unavailable for the remainder of FY2026. A cached snapshot answering priority-date
-  questions confidently is the one genuinely dangerous failure mode of an offline tool.
-  `answer.needs_live_bulletin()` refuses and points at travel.state.gov. Keep it that way.
+**Visa Bulletin — reversed 2026-09-29.**
+- The entry here said `answer.needs_live_bulletin()` refuses priority-date questions. **It
+  does not** — it appends a warning and lets the model answer, and gemma3:4b invented
+  cutoffs ("June 1, 2021", "June 28, 2023"). The comparison itself is date arithmetic; what
+  is missing is the cutoff. New direction: fetch the bulletin as public data on the same
+  schedule as the register (no user data leaves), store category × country × final action
+  / dates for filing with its month, compare in Python, ask for the user's priority date
+  and country of chargeability, and state the bulletin's month every time.
+- travel.state.gov returns **HTTP 403** to scripted clients (index and monthly pages, with
+  browser headers). The table may have to ship through our own update URL.
+
+**Product plan (finding 29)** — deterministic rules → follow-up questions →
+citations-first answers → narrow v0.1 (F-1 / OPT / STEM / cap-gap) → .dmg/.exe. UI and
+packaging not started.
 
 ---
 
