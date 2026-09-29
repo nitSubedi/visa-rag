@@ -16,6 +16,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import register, terminology
+from .cites import SECTION_NO
 from .config import settings, tier_weight
 from .embed import embed_query
 from .models import Chunk
@@ -66,7 +67,7 @@ def tokenize(s: str) -> list[str]:
 
 # A citation is a subsection; the unit a reader would call "the same law" is the
 # section. Capping only by citation lets one section arrive in pieces.
-SECTION = re.compile(r"^(\d+ (?:CFR|U\.S\.C\.) § [\d.]+)")
+SECTION = re.compile(rf"^(\d+ (?:CFR|U\.S\.C\.) § {SECTION_NO})")
 PM_CHAPTER = re.compile(r"^(USCIS PM Vol \S+, Pt \S+, Ch \S+?)(?:,|$)")
 
 

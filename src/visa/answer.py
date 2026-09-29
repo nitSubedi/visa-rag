@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 from . import dates, profile, register, terminology
+from .cites import CFR_SECTION
 from .config import settings, tier_label
 from .search import Hit, Index, passes_gate
 
@@ -371,7 +372,9 @@ def answer(
     return hits, passes_gate(hits), warnings
 
 
-CITE_RE = re.compile(r"\b(\d{1,2})\s*(?:CFR|C\.F\.R\.)\s*§?\s*([\d.]+[a-z0-9()]*)", re.I)
+CITE_RE = re.compile(
+    rf"\b(\d{{1,2}})\s*(?:CFR|C\.F\.R\.)\s*§?\s*({CFR_SECTION}[a-z0-9()]*)", re.I
+)
 USC_RE = re.compile(r"\b(\d{1,2})\s*U\.?S\.?C\.?\s*§?\s*([\d]+[a-z0-9()\-]*)", re.I)
 BRACKET_RE = re.compile(r"\[(\d{1,2})\]")
 

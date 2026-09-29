@@ -21,11 +21,13 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from .cites import SECTION_NO
 from .config import settings
 
 # "8 CFR § 214.2(f)(5)" -> ("8", "CFR", "214.2", ["f", "5"])
 CITE_RE = re.compile(
-    r"^\s*(\d{1,2})\s*(CFR|C\.F\.R\.|U\.?S\.?C\.?)\s*§?\s*([\d.]+?)\s*((?:\([a-z0-9]{1,4}\))*)\s*$",
+    rf"^\s*(\d{{1,2}})\s*(CFR|C\.F\.R\.|U\.?S\.?C\.?)\s*§?\s*({SECTION_NO})\.?\s*"
+    r"((?:\([a-z0-9]{1,4}\))*)\s*$",
     re.I,
 )
 PART_RE = re.compile(r"\(([a-z0-9]{1,4})\)", re.I)

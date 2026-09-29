@@ -13,6 +13,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from pathlib import Path
 
+from .cites import SECTION_NO
 from .config import settings
 from .models import Chunk
 from .sources import Source
@@ -323,7 +324,7 @@ def chunk_ecfr(paths: list[Path], src: Source) -> list[Chunk]:
             head, paras = _section_paragraphs(el, toc)
             if not paras:
                 continue
-            heading = re.sub(r"^§+\s*[\d.]+\s*", "", head).strip(" .")
+            heading = re.sub(rf"^§+\s*{SECTION_NO}\s*", "", head).strip(" .")
             toc_head = dict(toc)
             for letter, ps in paras:
                 cite = f"{title_no} CFR § {sec}" + (f"({letter})" if letter else "")
