@@ -300,6 +300,8 @@ def stream_chat(
     }
     if fmt is not None:
         payload["format"] = fmt
+    if settings.think is not None:
+        payload["think"] = settings.think
     req = urllib.request.Request(
         f"{settings.ollama_host}/api/chat",
         data=json.dumps(payload).encode(),

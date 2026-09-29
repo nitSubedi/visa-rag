@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # applications out to swap, which is what made the tool unusable alongside other
     # work. The smaller model is better here on every axis measured.
     chat_model: str = "qwen2.5:7b"
+    # Reasoning ("thinking") for models that have it, e.g. qwen3.5 — on by default
+    # there, and it spent 235 tokens on "150 minus 110". None sends nothing, because a
+    # model without thinking may reject the parameter. VISA_THINK=false to turn it off.
+    think: bool | None = None
     # Ollama holds a model resident for 5 minutes after each request by default, so
     # 5.5 GB stayed pinned long after an answer printed. Release it sooner; reloading
     # from page cache costs a couple of seconds.
