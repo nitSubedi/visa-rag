@@ -119,7 +119,7 @@ def test_plan_issues_uses_the_configured_temperature(monkeypatch):
     """The temperature must be reachable from settings, not welded into the call."""
     seen: list[float] = []
 
-    def fake_chat(messages, model=None, temperature=0.15):
+    def fake_chat(messages, model=None, temperature=0.15, **_):
         seen.append(temperature)
         return iter(["unemployment accrual\nemployer eligibility\n"])
 

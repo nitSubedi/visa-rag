@@ -213,6 +213,7 @@ def stream_chat(
     model: str | None = None,
     temperature: float = 0.15,
     fmt: dict[str, object] | None = None,
+    max_tokens: int | None = None,
 ) -> Iterator[str]:
     """`fmt` is a JSON schema. Ollama masks tokens that would violate it during
     sampling, so an out-of-schema reply is unreachable rather than discouraged — the
@@ -222,7 +223,13 @@ def stream_chat(
         "messages": messages,
         "stream": True,
         "keep_alive": settings.keep_alive,
-        "options": {"temperature": temperature, "num_ctx": settings.num_ctx},
+        "options": {
+            "temperature": temperature,
+            "num_ctx": settings.num_ctx,
+            # Always capped. Without num_predict a model that never emits an end token
+            # generates until the context fills — a hang, not an answer.
+            "num_predict": max_tokens or settings.answer_reserve_tokens,
+        },
     }
     if fmt is not None:
         payload["format"] = fmt
@@ -690,6 +697,7 @@ def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[st
             stream_chat(
                 [{"role": "user", "content": prompt}],
                 temperature=settings.plan_temperature,
+                max_tokens=settings.plan_max_tokens,
             )
         )
     except Exception:

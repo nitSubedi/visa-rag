@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     # for the same question twice is not reproducible for the user either.
     # Raise it only to deliberately sample issue-spotting, and raise `--repeat` with it.
     plan_temperature: float = 0.0
+    # Issue planning emits three to six short query lines. Nothing capped generation, so
+    # a small model stuck in a greedy repetition loop ran until the 16k context filled.
+    plan_max_tokens: int = 256
     # Calibrated, not guessed: across 7 in-domain and 5 off-domain probes the lowest
     # genuine query scored 0.688 and the highest irrelevant one 0.544. Midpoint.
     # Re-measure if `embed_model` changes; the floor is model-specific.
