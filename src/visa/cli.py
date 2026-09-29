@@ -359,6 +359,20 @@ def _answer_once(
     decided = ans.decide(q, profile.load())
     msgs = ans.build_prompt(q, hits, turns=turns, decided=decided)
     c.print()
+    # A rule the code decided is shown by the code, and first: the model restating it
+    # proved unreliable (it answered "80 days." with "40 days remain" in its prompt).
+    if findings := rules.render(decided, head=""):
+        c.print(
+            Panel(
+                findings,
+                title="[green]rule findings[/green]",
+                subtitle="[dim]decided by code from the quoted law and your facts[/dim]",
+                border_style="green",
+            )
+        )
+    for ask in rules.questions(decided):
+        c.print(f"[cyan]? To answer this properly I need to know:[/cyan] {ask}")
+
     buf: list[str] = []
     first = True
     status = c.status("[dim]reading the sources…[/dim]")
@@ -419,18 +433,6 @@ def _answer_once(
                 )
             )
 
-    # A rule the code decided is shown by the code, not left to the model to repeat.
-    if findings := rules.render(decided, head=""):
-        c.print(
-            Panel(
-                findings,
-                title="[green]rule findings[/green]",
-                subtitle="[dim]decided by code from the quoted law and your facts[/dim]",
-                border_style="green",
-            )
-        )
-    for ask in rules.questions(decided):
-        c.print(f"[cyan]? To answer this properly I need to know:[/cyan] {ask}")
     if deadlines := dates.render(profile.load()):
         c.print(
             Panel(
@@ -453,6 +455,7 @@ def _answer_once(
         ans.verify_citations(text, hits)
         + ans.verify_dates(text, hits=hits)
         + ans.verify_dialogue(text)
+        + rules.contradictions(text, decided, q)
         + ([] if attributed else ans.verify_grounding(text))
     )
     if attributed:
