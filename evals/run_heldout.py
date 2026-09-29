@@ -72,7 +72,10 @@ def main() -> int:
                 prose = "".join(
                     ans.stream_chat(ans.build_prompt(sc.question, hits), temperature=0.0)
                 )
-            shown = "\n".join([*warnings, prose, dates.render(profile.load())])
+            refusal = "" if gated else ans.GATE_REFUSAL  # what the CLI prints instead
+            shown = "\n".join(
+                [*warnings, refusal, prose, dates.render(profile.load())]
+            )
             saved.setdefault(sc.slug, []).append(
                 {"gated": gated, "warnings": warnings, "prose": prose}
             )

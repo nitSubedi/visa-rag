@@ -350,9 +350,7 @@ def _answer_once(
     for w in warnings:
         c.print(f"[yellow]⚠ {w}[/yellow]")
     if not gated:
-        c.print(
-            "[yellow]The sources I have don't cover this well enough to answer.[/yellow]"
-        )
+        c.print(f"[yellow]{ans.GATE_REFUSAL}[/yellow]")
         if hits:
             c.print("[dim]Closest passages, for what they're worth:[/dim]")
             _render_hits(hits[:4])

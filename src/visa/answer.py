@@ -42,6 +42,10 @@ THESE TWO RULES OVERRIDE EVERYTHING ABOVE:
    telling this person what they must, may, or cannot do WITHOUT a bracket is a
    failure. Cite by bracketed number only — never write "[8 CFR 204.5(d)]"."""
 
+# What the user sees when the citation gate declines. One string, so the eval scores
+# exactly what the CLI prints.
+GATE_REFUSAL = "The sources I have don't cover this well enough to answer."
+
 CLOSER = (
     "This is research, not legal advice. For anything that affects your status, "
     "confirm with your DSO (free, and they control your SEVIS record) or an "
