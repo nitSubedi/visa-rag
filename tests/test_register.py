@@ -25,6 +25,9 @@ from visa import register
         ("8 CFR 214.2(f)(5)", "8 CFR § 214.2(f)"),
         # the register covers the whole paragraph; the chunk is a sub-paragraph of it
         ("8 CFR 214.1(m)", "8 CFR § 214.1(m)(1)"),
+        # lettered parts: "[\\d.]+" read 274a.12 as 274, so this never matched
+        ("8 CFR 274a.12(c)", "8 CFR § 274a.12(c)"),
+        ("8 CFR 248.1(e)", "8 CFR § 248.1(e)"),
     ],
 )
 def test_a_provision_matches_the_citation_it_governs(provision, citation) -> None:
@@ -41,6 +44,9 @@ def test_a_provision_matches_the_citation_it_governs(provision, citation) -> Non
         ("8 CFR 214.2(f)", "8 U.S.C. § 214.2(f)"),  # regulation is not statute
         ("8 CFR 214.2(f)", "USCIS PM Vol 2, Pt F, Ch 5"),  # not a CFR citation at all
         ("8 CFR 214.2(f)", ""),
+        ("8 CFR 274a.12(c)", "8 CFR § 274a.1(c)"),  # a lettered part's other section
+        ("8 CFR 274a.12(c)", "8 CFR § 274.12(c)"),  # the letter is part of the number
+        ("8 CFR 248.1(e)", "8 CFR § 248.1(g)"),  # relettered, not rewritten: in force
     ],
 )
 def test_unrelated_citations_do_not_match(provision, citation) -> None:
@@ -368,3 +374,36 @@ def test_the_enjoined_text_never_reaches_the_model() -> None:
             assert hit and phrase not in _flat(kept), (
                 f"{phrase!r} survived in {r.citation}"
             )
+
+
+def test_every_section_the_rule_amends_is_registered() -> None:
+    """The register covered 214.1 and 214.2 and missed half the rule. Its amendatory
+    instructions (FR Doc. 2026-14439, 91 FR 44976, items 2, 3, 5 and 7) amend exactly
+    these four sections; a section left out is enjoined law served as current."""
+    (entry,) = [e for e in register.load() if "26-cv-13799" in e.docket]
+    sections = {register._parse(p)[2] for p in entry.provisions}
+    assert sections == {"214.1", "214.2", "248.1", "274a.12"}
+
+
+def test_the_rules_paragraphs_outside_214_never_reach_the_model() -> None:
+    """248.1(e) is the 4-year cap on readmission itself; 274a.12(c)(3)(iii) is the
+    240-day limit the injunction names. 248.1(g) was only relettered and stays."""
+    idx, entries = _corpus()
+    outside = ("8 CFR § 248.1", "8 CFR § 274a.12")
+    rows = [r for r in idx.rows if r.citation.startswith(outside)]
+    served = " ".join(
+        _flat(register.redact(r.citation, r.text, entries)[0]) for r in rows
+    )
+    raw = " ".join(_flat(r.text) for r in rows)
+    for enjoined in (
+        "not to exceed a period of 4 years",
+        "will consider the change of status application abandoned",
+        "but not to exceed 240 days",
+        "Employment authorization does not extend to the dependents of a foreign",
+    ):
+        assert enjoined in raw and enjoined not in served, enjoined
+    for in_force in (
+        "shall not be denied on the grounds the applicant is an intending immigrant",
+        "adjustment of status to lawful permanent resident",
+    ):
+        assert in_force in served, in_force

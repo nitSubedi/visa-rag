@@ -25,6 +25,14 @@ provisions = [
   "8 CFR 214.2(f)",
   "8 CFR 214.2(i)",
   "8 CFR 214.2(j)",
+  # Missed until 2026-09-29: the rule also amends 248.1 and 274a.12. Its amendatory
+  # instructions (FR Doc. 2026-14439, 91 FR 44976) list exactly four sections — 214.1,
+  # 214.2, 248.1, 274a.12. 248.1(g) is NOT here: the rule only relettered it from (e),
+  # word for word, so its text is in force.
+  "8 CFR 248.1(e)",
+  "8 CFR 248.1(f)",
+  "8 CFR 274a.12(b)",
+  "8 CFR 274a.12(c)",
 ]
 # The paragraphs the rule added or rewrote, in full, found by diffing the 2026-08-21 and
 # 2026-09-18 eCFR editions with `scripts/register_diff.py --full` — not typed from memory.
@@ -32,6 +40,11 @@ provisions = [
 # openings because redaction removes each paragraph by its exact span. None of the amended
 # 214.2(f) paragraphs carries E-Verify, unemployment, Form I-983 or bona fide employment
 # text. 214.2(h) also changed between those editions — a different rule, excluded.
+# Plus 5 paragraphs outside 214, from the same diff run over all of Title 8 and checked
+# against the rule's amendatory instructions: 248.1(e) (the 4-year cap on readmission)
+# and (f) (abandonment of change of status), and 274a.12(b)(6)(v), (b)(10), (c)(3)(iii)
+# (the 240-day limit). The other sections that changed in that window — fees, e-filing,
+# public charge, persons born to foreign government employees — are other rules.
 amended = [
   "(4) Requirements for admission of aliens under section 101(a)(15)(F) and (J). Aliens applying for admission as F or J nonimmigrants after September 15, 2026, will be inspected and may be admitted into the United States, if in possession of a valid Form I-20 or Form DS-2019, or successor form, and otherwise eligible, and subject to the following:",
   "(i) Aliens applying for admission as F nonimmigrants. (A) Aliens seeking admission to the United States, including those seeking admission with a properly filed pending application for an extension of stay, as an F nonimmigrant after a previously authorized period of admission as an F nonimmigrant expired, may be admitted for a maximum period of 4 years or the length of program as specified on Form I-20, whichever is shorter, plus additional 30 day periods for arrival and departure as provided in § 214.2(f)(5)(i);",
@@ -151,6 +164,11 @@ amended = [
   "(viii) Use of SEVIS. The use of the Student and Exchange Visitor Information System (SEVIS) is mandatory for designated program sponsors. All designated program sponsors must issue a SEVIS Form DS-2019 to any exchange visitor requiring a reportable action (e.g., program extensions and requests for employment authorization), or for any aliens who must obtain a new nonimmigrant J visa. As of 2003, the records of all current or continuing exchange visitors must be entered in SEVIS.",
   "(ix) Current name and address. A J-1 exchange visitor must inform DHS and the responsible officer of the exchange visitor program of any legal changes to his or her name or of any change of address within 10 calendar days of the change, in a manner prescribed by the program sponsor. A J-1 exchange visitor enrolled in a SEVIS program can satisfy the reporting requirement in 8 CFR 265.1 by providing a notice of a change of address within 10 calendar days to the responsible officer, who in turn shall enter the information in SEVIS within 10 business days of notification by the exchange visitor. In cases where an exchange visitor provides the sponsor a mailing address that is different than his or her actual physical address, he or she is responsible for providing the sponsor his or her actual physical location of residence. The exchange visitor program sponsor is responsible for maintaining a record of, and must provide upon request from DHS, the actual physical location where the exchange visitor resides.",
   "(6) Severability. The provisions in this paragraph (j) are intended to be independent severable parts. In the event that any provision in this paragraph (j) is not implemented, DHS intends that the remaining provisions be implemented as an independent rule.",
+  "(e) Admission of aliens under section 101(a)(15)(F) and (J) previously granted duration of status. Aliens who were granted a change to F or J status prior to September 15, 2026, and who departed the United States and are applying for admission on or after September 15, 2026, will be inspected and may be admitted into the United States up to the program end date as noted on the Form I-20 or Form DS-2019 not to exceed a period of 4 years. To be admitted into the United States, all aliens must be eligible for the requested status and possess the proper documentation, including a valid passport, valid nonimmigrant visa, if required, and valid Form I-20 or Form DS-2019 or successor form.",
+  "(f) Abandonment of change of status application. If an alien timely files an application to change to another nonimmigrant status but departs the United States while the application is pending, USCIS will consider the change of status application abandoned.",
+  "(v) Pursuant to 8 CFR 214.2(h) is seeking H-1B nonimmigrant status and whose status and employment authorization have been extended pursuant to 8 CFR 214.2(f)(5)(vii).",
+  "(10) An alien who is a foreign information media representative in I status under 8 CFR 214.2(i) may be employed pursuant to the requirements of 8 CFR 214.2(i). Employment authorization does not extend to the dependents of a foreign information media representative.",
+  "(iii) Is seeking employment because of severe economic hardship pursuant to 8 CFR 214.2(f)(9)(ii)(C) and has an Employment Authorization Document, Form I-766 or successor form, based on severe economic hardship pursuant to 8 CFR 214.2(f)(9)(ii)(C), and whose timely filed application for employment authorization and application for extension of stay, both filed on applicable forms and in the manner designated by USCIS, with the required fees, as described in the form's instructions, are pending, is authorized to engage in employment beginning on the expiration date of the Employment Authorization Document issued under paragraph (c)(3)(i)(B) of this section and ending on the date of USCIS' written decision on the current Application for Employment Authorization, Form I-765, or successor form, but not to exceed 240 days. For this same period, such Employment Authorization Document, Form I-766 or successor form, is automatically extended and is considered unexpired when combined with a Certificate of Eligibility for Nonimmigrant (F-1/M-1) Students, Form I-20 or successor form, endorsed by the Designated School Official recommending such an extension.",
 ]
 status = "enjoined"
 case = "Presidents' Alliance on Higher Education and Immigration v. DHS"
