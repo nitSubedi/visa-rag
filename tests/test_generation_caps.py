@@ -20,7 +20,9 @@ def _capture(monkeypatch) -> list[dict]:
     sent: list[dict] = []
 
     def fake_urlopen(req, timeout=None):
-        sent.append(json.loads(req.data))
+        # Only chat calls: stream_chat may first read the model's metadata.
+        if req.full_url.endswith("/api/chat"):
+            sent.append(json.loads(req.data))
         body = json.dumps({"message": {"content": "x"}, "done": True}).encode() + b"\n"
         return io.BytesIO(body)
 

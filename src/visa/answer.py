@@ -213,6 +213,49 @@ def build_prompt(
     ]
 
 
+_SYSTEM_ROLE: dict[str, bool] = {}
+
+
+def has_system_role(model: str) -> bool:
+    """Gemma's instruction-tuned models have only `user` and `model` roles; Google's
+    guidance is to put system-level instructions in the first user turn
+    (ai.google.dev/gemma/docs/core/prompt-structure). Ollama's gemma3 template instead
+    renders a system message as a user turn of its own, so the model saw our rules as
+    a separate message from someone, followed by a second one holding the question.
+    Read from the model's own metadata; unknown means leave the messages alone."""
+    if model not in _SYSTEM_ROLE:
+        try:
+            req = urllib.request.Request(
+                f"{settings.ollama_host}/api/show",
+                data=json.dumps({"model": model}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                details = json.load(r).get("details") or {}
+            families = [details.get("family") or "", *(details.get("families") or [])]
+            _SYSTEM_ROLE[model] = not any(f.startswith("gemma") for f in families)
+        except Exception:
+            return True
+    return _SYSTEM_ROLE[model]
+
+
+def fold_system(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Move system text to the start of the next user turn, as the model expects."""
+    out: list[dict[str, str]] = []
+    pending: list[str] = []
+    for m in messages:
+        if m["role"] == "system":
+            pending.append(m["content"])
+        elif m["role"] == "user" and pending:
+            out.append({"role": "user", "content": "\n\n".join([*pending, m["content"]])})
+            pending = []
+        else:
+            out.append(m)
+    if pending:
+        out.append({"role": "user", "content": "\n\n".join(pending)})
+    return out
+
+
 def stream_chat(
     messages: list[dict[str, str]],
     model: str | None = None,
@@ -223,8 +266,11 @@ def stream_chat(
     """`fmt` is a JSON schema. Ollama masks tokens that would violate it during
     sampling, so an out-of-schema reply is unreachable rather than discouraged — the
     one thing prompt wording has repeatedly failed to achieve on a 7b."""
+    model = model or settings.chat_model
+    if not has_system_role(model):
+        messages = fold_system(messages)
     payload: dict[str, object] = {
-        "model": model or settings.chat_model,
+        "model": model,
         "messages": messages,
         "stream": True,
         "keep_alive": settings.keep_alive,
