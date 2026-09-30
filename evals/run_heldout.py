@@ -44,11 +44,15 @@ def main() -> int:
     ap.add_argument("--model")
     ap.add_argument("--repeat", type=int, default=2)
     ap.add_argument("--out")
+    ap.add_argument("--set", choices=["heldout", "fresh"], default="heldout")
     args = ap.parse_args()
     if args.model:
         os.environ["VISA_CHAT_MODEL"] = args.model
 
-    from heldout import HELDOUT
+    if args.set == "fresh":
+        from fresh import FRESH as HELDOUT
+    else:
+        from heldout import HELDOUT
 
     per_cat = {v: defaultdict(lambda: [0, 0]) for v in ("prose", "shown")}
     totals = {"prose": [0, 0], "shown": [0, 0]}

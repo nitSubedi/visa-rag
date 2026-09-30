@@ -34,6 +34,9 @@ Corrections (a held-out check changed after outputs were seen, and why):
               ... [7, 11]" — both invented, both missed because the patterns expected
               second-person phrasing. Widened to the forms observed, in both
               directions; nothing else changed.
+  2026-09-29  h8 "abandoned" matched "your application is **not abandoned**" —
+              the rule inverted, scored as correct. Negation now fails it, and a
+              must_not catches the inversion.
 
 Refusal is scored in both directions (h11-h16, added 2026-09-29, written before any
 model ran on them). A refusal rule tuned against one side alone drifts to the other:
@@ -344,7 +347,7 @@ HELDOUT: list[HScenario] = [
         checks=[
             HCheck(
                 "abandoned",
-                r"abandon",
+                r"(?<!not )(?<!n't )(?<!not be )(?<!not deemed )abandon",
                 "copy",
                 why="PM Vol 2, Pt F, Ch 8, A.5: travel abroad while a COS application is "
                 "pending -> USCIS considers it abandoned (in force; 8 CFR 248.1(f), "
@@ -356,6 +359,15 @@ HELDOUT: list[HScenario] = [
                 "behave",
                 kind="must_not",
                 why="the corpus answers this; declining it is over-refusal",
+            ),
+            HCheck(
+                "no_inverted_rule",
+                r"not (be )?(deemed |considered )?abandoned|does not (trigger )?abandon",
+                "copy",
+                kind="must_not",
+                why="qwen3:4b-instruct answered \"your application is **not abandoned**\" "
+                "(the cap-gap travel rule misapplied to a pending petition) and \"abandon\" "
+                "matched it",
             ),
         ],
     ),
