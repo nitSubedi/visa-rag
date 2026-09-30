@@ -166,6 +166,13 @@ def main() -> int:
         return 1
 
     label = month.strftime("%B %Y")
+    if args.out.exists():  # never replace a newer month with an older one
+        import tomllib
+
+        prev = str(tomllib.loads(args.out.read_text()).get("month", ""))
+        if prev and month.strftime("%Y-%m") < prev:
+            print(f"{label} is older than the table's {prev}; table unchanged")
+            return 0
     chart = uscis_chart(label)
     data: dict[str, object] = {"month": month.strftime("%Y-%m"), **agreed}
     args.out.write_text(

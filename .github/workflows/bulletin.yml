@@ -1,0 +1,50 @@
+# Keeps bulletin/visa_bulletin.toml current. The app fetches that file (bulletin_url)
+# at most once a day, so publishing it here is what reaches every install.
+#
+# Runs daily because the bulletin appears on no fixed date mid-month; it commits only
+# when the table changed. scripts/bulletin_update.py publishes a cut-off only when at
+# least two independent republications agree and none disagrees, and never replaces a
+# newer month with an older one.
+name: visa bulletin
+
+on:
+  schedule:
+    - cron: "17 14 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: visa-bulletin
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install
+        run: uv sync --frozen
+
+      - name: Build the table from agreeing republications
+        run: uv run python scripts/bulletin_update.py
+
+      - name: Check it before publishing
+        run: uv run pytest -q tests/test_bulletin.py tests/test_updates.py
+
+      - name: Commit if it changed
+        run: |
+          git config user.name "visa-bulletin-bot"
+          git config user.email "visa-bulletin-bot@users.noreply.github.com"
+          git add bulletin/visa_bulletin.toml
+          if git diff --cached --quiet; then
+            echo "table unchanged"
+          else
+            git commit -m "data: Visa Bulletin table $(grep -m1 '^month' bulletin/visa_bulletin.toml | cut -d'"' -f2)"
+            git push
+          fi
