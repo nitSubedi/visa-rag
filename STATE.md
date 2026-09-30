@@ -1112,9 +1112,16 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   older than what is here (no rollback of the bulletin month or the register's `checked`
   date), and is written atomically; offline or a bad download keeps the current copy, and
   the shipped copy is always the floor. The request is the configured URL and a generic
-  User-Agent — nothing about the user. **Both URLs are empty** until the repo is published
-  somewhere (no git remote yet); `scripts/bulletin_update.py` then needs a monthly schedule
-  that commits its output there.
+  User-Agent — nothing about the user. Published at **github.com/nitSubedi/visa-rag**
+  (public, `main`); `register_url` and `bulletin_url` point at its raw files, and
+  `.github/workflows/bulletin.yml` rebuilds the table daily and commits only real changes.
+  History was rewritten before the first push: author email -> GitHub no-reply, and a
+  sentence describing the author's own situation removed from every STATE.md version
+  (backup bundle kept outside the repo).
+- **Coverage gap:** GitHub's runners get 403 from Visa Lawyer Blog, leaving one Final
+  Action source reachable from there (DiRaimondo & Schroeder). Dates for Filing has three.
+  For a new month, Final Action cut-offs show UNCONFIRMED until a second source reachable
+  from GitHub is added to `PUBLISHERS`. Cells confirmed earlier in a month are kept.
 
 **Product plan (finding 29)** — deterministic rules → follow-up questions →
 citations-first answers → narrow v0.1 (F-1 / OPT / STEM / cap-gap) → .dmg/.exe. UI and
