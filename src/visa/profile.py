@@ -23,6 +23,8 @@ employer            = ""
 i94_expiry          = ""
 prior_filings       = ""          # e.g. "I-765 filed 2026-03-02"
 cpt_full_time_months = ""         # full-time CPT at your current degree level
+eb_category         = ""          # EB-1, EB-2, EB-3 or EB-4, once a petition is filed
+priority_date       = ""          # from your I-140 / PERM receipt, YYYY-MM-DD
 goals               = ""          # e.g. "EB-1A / NIW as a startup founder"
 notes               = ""
 """

@@ -365,9 +365,8 @@ def answer(
     warnings = list(index.warnings)
     if needs_live_bulletin(question):
         warnings.append(
-            "Priority-date questions depend on the monthly Visa Bulletin, which this "
-            "tool deliberately does not cache. Check travel.state.gov for the current "
-            "month — any cached answer would risk being wrong."
+            "Priority dates move every month. The rule finding below names the bulletin "
+            "month it used — confirm against the current bulletin at travel.state.gov."
         )
 
     query = retrieval_query(question, turns)

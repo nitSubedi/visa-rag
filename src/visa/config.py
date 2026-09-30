@@ -110,6 +110,21 @@ class Settings(BaseSettings):
     # code — an unreachable URL must degrade to that floor, never to silence.
     register_url: str = ""
 
+    # Where to pull a newer Visa Bulletin table from, same contract as register_url.
+    bulletin_url: str = ""
+
+    @property
+    def bulletin(self) -> Path:
+        """The monthly Visa Bulletin table. Public; contains nothing about the user."""
+        return self.home / "bulletin"
+
+    @property
+    def bulletin_defs(self) -> Path:
+        """The table shipped with the code. Empty until a maintainer imports a month:
+        travel.state.gov refuses scripted clients, so a person saves the page and
+        scripts/bulletin_import.py reads it — cutoff dates are never typed by hand."""
+        return Path(__file__).resolve().parents[2] / "bulletin"
+
     @property
     def register(self) -> Path:
         """Litigation status. Public information; contains nothing about the user."""

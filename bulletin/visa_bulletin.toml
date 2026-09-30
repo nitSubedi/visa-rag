@@ -1,0 +1,6 @@
+# Visa Bulletin, employment-based charts. Empty: no month has been imported yet.
+# To import: save the current bulletin page from travel.state.gov in a browser (the
+# site refuses scripted clients), then run
+#   python scripts/bulletin_import.py ~/Downloads/visa-bulletin-for-<month>-<year>.html
+# which parses the page and writes this file. Cutoff dates are never typed by hand.
+month = ""

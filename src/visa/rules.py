@@ -292,13 +292,21 @@ _SITUATIONS = {
     "says_timely": r"on time|timely|before (my|the) (OPT |EAD |OPT EAD )?(card )?"
     r"expir",
     "says_ead_expired": r"(EAD|OPT|card)[^.]{0,30}(expired|ran out|ended)",
+    "says_priority_date": r"priority date|visa bulletin|final action date|"
+    r"dates for filing|retrogress|cut-?off date|\bcurrent for\b",
 }
 
 
 def read_situation(question: str) -> dict[str, object]:
-    return {
+    out: dict[str, object] = {
         k: True for k, rx in _SITUATIONS.items() if re.search(rx, question, re.IGNORECASE)
     }
+    if out.get("says_priority_date"):
+        if cat := category_of(question):
+            out["stated_category"] = cat
+        if d := date_of(question):
+            out["stated_priority_date"] = d
+    return out
 
 
 # --- travel while a change of status is pending -----------------------------------
@@ -392,6 +400,160 @@ def _stem_pending_decide(f: dict[str, object]) -> Outcome | Needs:
     )
 
 
+# --- is my priority date current? ---------------------------------------------------
+# The cut-off comes from the Visa Bulletin table (bulletin.py), stamped with its month;
+# the comparison is the Policy Manual's, done here. With no table loaded the rule says
+# so and points to the source — it never supplies a date.
+
+PRIORITY_SOURCES = (
+    Source(
+        "USCIS PM Vol 7, Pt A, Ch 6",
+        "Visas are available for a prospective immigrant when the immigrant\u2019s "
+        "priority date is earlier than the cut-off date shown in the relevant Visa "
+        "Bulletin chart for his or her preference category and country of birth (and "
+        "chargeability).",
+    ),
+    Source(
+        "USCIS PM Vol 7, Pt A, Ch 7, F.4",
+        "USCIS designates one of the two charts for use by aliens each month.",
+    ),
+)
+
+_CATEGORY = (
+    (r"\bEB-?1[ABC]?\b|first[- ]preference|\b1st preference", "EB-1"),
+    (
+        r"\bEB-?2\b|\bNIW\b|national interest waiver|second[- ]preference|"
+        r"\b2nd preference",
+        "EB-2",
+    ),
+    (r"\bEB-?3\b|third[- ]preference|\b3rd preference", "EB-3"),
+    (r"\bEB-?4\b|fourth[- ]preference", "EB-4"),
+)
+
+
+def category_of(text: str) -> str | None:
+    """The one employment-based category the text names, or None if none or several."""
+    found = {c for rx, c in _CATEGORY if re.search(rx, text, re.IGNORECASE)}
+    return found.pop() if len(found) == 1 else None
+
+
+def area_of(country: str) -> str | None:
+    """Area of chargeability as the bulletin columns name them, from country of birth.
+    Mainland China only: Hong Kong, Macau and Taiwan are charged to "all"."""
+    c = country.strip().lower()
+    if not c:
+        return None
+    if re.search(r"hong kong|macau|macao|taiwan", c):
+        return "all"
+    for area, rx in (
+        ("china", r"china|\bprc\b"),
+        ("india", r"india"),
+        ("mexico", r"mexic"),
+        ("philippines", r"philippin|filipin"),
+    ):
+        if re.search(rx, c):
+            return area
+    return "all"
+
+
+def date_of(text: str) -> dt.date | None:
+    """A full date the person wrote: 2021-03-15, March 15 2021, 15 March 2021."""
+    m = re.search(r"\b(\d{4})-(\d{2})-(\d{2})\b", text)
+    if m:
+        try:
+            return dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+    for fmt in ("%B %d %Y", "%d %B %Y", "%b %d %Y", "%d %b %Y"):
+        for cand in re.findall(
+            r"[A-Za-z]{3,9}\.? \d{1,2},? \d{4}|\d{1,2} [A-Za-z]{3,9}\.? \d{4}", text
+        ):
+            try:
+                return dt.datetime.strptime(
+                    cand.replace(",", "").replace(".", ""), fmt
+                ).date()
+            except ValueError:
+                continue
+    return None
+
+
+def _priority_applies(f: dict[str, object]) -> bool:
+    return bool(f.get("says_priority_date"))
+
+
+def _priority_decide(f: dict[str, object]) -> Outcome | Needs:
+    from . import bulletin as vb  # local: bulletin imports config, rules must stay light
+
+    rule = "priority_date_current"
+    b = vb.load()
+    if b is None:
+        return Outcome(
+            rule,
+            "NO VISA BULLETIN IS LOADED, so this cannot be decided here. Compare your "
+            "priority date with this month's bulletin at travel.state.gov, using the "
+            "chart USCIS names on its Adjustment of Status Filing Charts page.",
+            "no bulletin table has been imported.",
+            PRIORITY_SOURCES,
+        )
+    cat = f.get("stated_category") or category_of(str(f.get("eb_category") or ""))
+    if not cat:
+        return Needs(
+            rule,
+            "eb_category",
+            "Which employment-based category is your petition in (EB-1, EB-2, "
+            "EB-3, or EB-4)?",
+        )
+    area = area_of(str(f.get("country_of_birth") or ""))
+    if not area:
+        return Needs(
+            rule,
+            "country_of_birth",
+            "What is your country of birth? The Visa Bulletin charts by country of "
+            "birth, not citizenship.",
+        )
+    pd = f.get("stated_priority_date") or date_of(str(f.get("priority_date") or ""))
+    if not isinstance(pd, dt.date):
+        return Needs(
+            rule,
+            "priority_date",
+            "What is your priority date (on your I-140 or PERM receipt, e.g. "
+            "2021-03-15)?",
+        )
+    parts = []
+    for chart, name in (
+        ("final_action", "Final Action Dates"),
+        ("dates_for_filing", "Dates for Filing"),
+    ):
+        cut = b.cutoff(chart, str(cat), area)
+        if cut is None:
+            parts.append(f"{name}: not in the table")
+            continue
+        shown = {"C": "Current", "U": "Unavailable"}.get(cut, cut)
+        parts.append(f"{name}: {vb.compare(pd, cut)} (cut-off {shown})")
+    which = {"final_action": "Final Action Dates", "dates_for_filing": "Dates for Filing"}
+    chart_note = (
+        f" For {b.label}, USCIS accepts the {which[b.uscis_chart]} chart for "
+        "employment-based adjustment of status."
+        if b.uscis_chart in which
+        else " Check which chart USCIS accepts this month on its filing charts page."
+    )
+    stale = (
+        ""
+        if b.is_current()
+        else f"THIS IS THE {b.label.upper()} BULLETIN, NOT THIS MONTH'S — dates may have "
+        "moved. "
+    )
+    return Outcome(
+        rule,
+        f"{stale}{cat}, {area} chargeability, priority date {pd.isoformat()} — "
+        + "; ".join(parts)
+        + "."
+        + chart_note,
+        f"{b.label} Visa Bulletin, employment-based charts.",
+        PRIORITY_SOURCES,
+    )
+
+
 RULES: tuple[Rule, ...] = (
     Rule("cpt_full_time_year", _cpt_applies, _cpt_decide, CPT_SOURCES),
     Rule(
@@ -411,6 +573,11 @@ RULES: tuple[Rule, ...] = (
         _stem_pending_applies,
         _stem_pending_decide,
         STEM_PENDING_SOURCES,
+    ),    Rule(
+        "priority_date_current",
+        _priority_applies,
+        _priority_decide,
+        PRIORITY_SOURCES,
     ),
 )
 
@@ -547,7 +714,13 @@ def contradictions(
 
 # Facts about the person rather than about this question: saved to the profile, so the
 # second question does not ask again.
-PERSIST = {"cpt_full_time_months", "stem_extension"}
+PERSIST = {
+    "cpt_full_time_months",
+    "stem_extension",
+    "eb_category",
+    "country_of_birth",
+    "priority_date",
+}
 
 _YES = re.compile(r"^\s*(y|yes|yeah|yep|correct|true|i am|i did|it is)\b", re.I)
 _NO = re.compile(
@@ -576,6 +749,14 @@ def apply_answer(need: Needs, reply: str) -> dict[str, object]:
         if re.fullmatch(r"(none|zero|no(ne)?)\.?", t):
             nums = [0.0]
         return {"cpt_full_time_months": nums[0]} if len(nums) == 1 else {}
+    if need.fact == "eb_category":
+        cat = category_of(reply)
+        return {"eb_category": cat} if cat else {}
+    if need.fact == "country_of_birth":
+        return {"country_of_birth": reply.strip()} if area_of(reply) else {}
+    if need.fact == "priority_date":
+        d = date_of(reply)
+        return {"priority_date": d.isoformat()} if d else {}
     if need.fact == "unemployment_days":
         nums = sorted(_said_numbers(t))
         return {"unemployment_days": nums} if nums else {}

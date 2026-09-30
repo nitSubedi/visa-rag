@@ -1089,16 +1089,22 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   legal provisions. Design agreed, spec not yet written.
 - AAO/adopted decisions as a tier-4 source (how adjudicators reason on close calls).
 
-**Visa Bulletin — reversed 2026-09-29.**
-- The entry here said `answer.needs_live_bulletin()` refuses priority-date questions. **It
-  does not** — it appends a warning and lets the model answer, and gemma3:4b invented
-  cutoffs ("June 1, 2021", "June 28, 2023"). The comparison itself is date arithmetic; what
-  is missing is the cutoff. New direction: fetch the bulletin as public data on the same
-  schedule as the register (no user data leaves), store category × country × final action
-  / dates for filing with its month, compare in Python, ask for the user's priority date
-  and country of chargeability, and state the bulletin's month every time.
-- travel.state.gov returns **HTTP 403** to scripted clients (index and monthly pages, with
-  browser headers). The table may have to ship through our own update URL.
+**Visa Bulletin — built 2026-09-29.**
+- `answer.needs_live_bulletin()` never refused priority-date questions (it warned, and
+  models invented cutoffs). Now `rules.py` decides "is my priority date current?" in code:
+  the Policy Manual's comparison (Vol 7, Pt A, Ch 6 — "earlier than the cut-off date"),
+  both charts, the chart USCIS accepts that month, and the bulletin's month stated in the
+  decision, loudly when it is not this month's. Category and priority date are read from
+  the question; country of birth, category and date are asked for and saved when missing.
+- The table (`bulletin/visa_bulletin.toml`) ships **empty**: until a month is imported the
+  rule says "NO VISA BULLETIN IS LOADED" and points to travel.state.gov — no date is ever
+  supplied from memory. travel.state.gov returns 403 to every scripted client (the whole
+  domain, with browser headers), so the monthly step is a person's: save the bulletin page
+  in a browser, run `python scripts/bulletin_import.py <page.html>`. The script parses the
+  charts and the month from the page and reads the USCIS chart designation from uscis.gov
+  (reachable), matched by month. Parser tested against the July 2026 bulletin, archived.
+- **Not built:** fetching a newer table (or register) from `bulletin_url` / `register_url`
+  at runtime. Both still use the shipped copy unless a file is placed in `~/.visa/`.
 
 **Product plan (finding 29)** — deterministic rules → follow-up questions →
 citations-first answers → narrow v0.1 (F-1 / OPT / STEM / cap-gap) → .dmg/.exe. UI and
