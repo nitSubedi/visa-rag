@@ -648,8 +648,14 @@ def verify_dates(
     text: str,
     prof: dict[str, object] | None = None,
     hits: list[Hit] | None = None,
+    settled: str = "",
 ) -> list[str]:
     """Catch a stated deadline that the computed facts and sources do not support.
+
+    `settled` is text the model was right to repeat: the rule findings code decided and
+    the person's own question. Without it, an answer that correctly restated a Visa
+    Bulletin cut-off from the findings panel — and the person's own priority date — was
+    flagged four times as "the model worked it out".
 
     Two failures, both observed live:
 
@@ -672,7 +678,7 @@ def verify_dates(
         d: w.name for w in windows for d in (w.opens, w.closes) if d is not None
     }
 
-    computed = dates.render(prof)
+    computed = "\n".join(x for x in (dates.render(prof), settled) if x)
     reg = register.load() if hits else []
 
     def cited_text(block: str) -> str:

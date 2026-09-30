@@ -279,3 +279,16 @@ def test_the_observed_inversions_are_flagged(q, rule, prose) -> None:
 )
 def test_agreeing_prose_is_not_flagged(q, prose) -> None:
     assert rules.contradictions(prose, rules.evaluate(rules.read_situation(q)), q) == []
+
+
+def test_dates_the_code_settled_are_not_flagged_as_invented() -> None:
+    """A cut-off from the findings and the person's own priority date, restated."""
+    from visa import answer
+
+    text = "Your priority date 2014-06-01 is earlier than the cut-off 2015-01-15."
+    settled = "Dates for Filing: CURRENT (cut-off 2015-01-15)\nMy date is 2014-06-01."
+    assert answer.verify_dates(text, prof={}, hits=[], settled=settled) == []
+    flagged = answer.verify_dates(
+        "The cut-off is 2016-02-01.", prof={}, hits=[], settled=settled
+    )
+    assert flagged and "2016-02-01" in flagged[0]

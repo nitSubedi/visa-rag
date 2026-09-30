@@ -470,7 +470,9 @@ def _answer_once(
             attributed = ans.attribute_claims(claims, hits, msgs, text)
     problems = (
         ans.verify_citations(text, hits)
-        + ans.verify_dates(text, hits=hits)
+        + ans.verify_dates(
+            text, hits=hits, settled=f"{rules.render(decided, head='')}\n{q}"
+        )
         + ans.verify_dialogue(text)
         + rules.contradictions(text, decided, q)
         + ([] if attributed else ans.verify_grounding(text))
