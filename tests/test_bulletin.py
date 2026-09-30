@@ -173,7 +173,8 @@ def test_consensus_needs_two_agreeing_and_no_dissent() -> None:
     a = {"final_action": {"EB-2": {"all": "2025-01-01", "india": "2013-11-01"}}}
     b = {"final_action": {"EB-2": {"all": "2025-01-01", "india": "2013-12-01"}}}
     c = {"final_action": {"EB-2": {"all": "2025-01-01", "china": "2021-10-01"}}}
-    agreed, notes = consensus({"A": a, "B": b, "C": c})
+    agreed, notes, disputed = consensus({"A": a, "B": b, "C": c})
+    assert disputed == {("final_action", "EB-2", "india")}
     assert agreed["final_action"]["EB-2"] == {"all": "2025-01-01"}  # 3 agree
     assert any("DISAGREE" in n and "india" in n for n in notes)  # A vs B: withheld
     assert any("single source" in n and "china" in n for n in notes)  # only C: withheld
@@ -190,3 +191,17 @@ def test_consensus_needs_two_agreeing_and_no_dissent() -> None:
 def test_next_months_bulletin_is_upcoming_not_stale(month, today, want) -> None:
     b = vb.Bulletin(dt.date.fromisoformat(month + "-01"), {}, None, (), "", "")
     assert b.timing(dt.date.fromisoformat(today)) == want
+
+
+def test_a_publisher_going_quiet_does_not_delete_confirmed_cells() -> None:
+    """From GitHub, Visa Lawyer Blog answers 403: its earlier votes must still count."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
+    from bulletin_update import merge_same_month
+
+    prev = {"final_action": {"EB-2": {"india": "2013-11-01", "all": "2025-01-01"}}}
+    today = {"final_action": {}, "dates_for_filing": {"EB-2": {"india": "2015-01-15"}}}
+    out = merge_same_month(prev, today, disputed={("final_action", "EB-2", "all")})
+    assert out["final_action"]["EB-2"] == {"india": "2013-11-01"}  # kept; "all" disputed
+    assert out["dates_for_filing"]["EB-2"] == {"india": "2015-01-15"}

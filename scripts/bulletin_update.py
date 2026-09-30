@@ -20,6 +20,7 @@ import argparse
 import datetime as dt
 import re
 import sys
+import tomllib
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -112,8 +113,9 @@ def read(
 
 def consensus(
     readings: dict[str, dict[str, dict[str, dict[str, str]]]],
-) -> tuple[dict[str, dict[str, dict[str, str]]], list[str]]:
-    """Cells stated identically by >= MIN_AGREE sources and contradicted by none."""
+) -> tuple[dict[str, dict[str, dict[str, str]]], list[str], set[tuple[str, str, str]]]:
+    """Cells stated identically by >= MIN_AGREE sources and contradicted by none; notes;
+    and the cells the sources now disagree on."""
     votes: dict[tuple[str, str, str], dict[str, str]] = {}
     for src, charts in readings.items():
         for chart, table in charts.items():
@@ -122,15 +124,34 @@ def consensus(
                     votes.setdefault((chart, cat, area), {})[src] = v
     agreed: dict[str, dict[str, dict[str, str]]] = {c: {} for c in bulletin.CHARTS}
     notes = []
+    disputed: set[tuple[str, str, str]] = set()
     for (chart, cat, area), by in sorted(votes.items()):
         values = set(by.values())
         if len(values) > 1:
+            disputed.add((chart, cat, area))
             notes.append(f"DISAGREE {chart} {cat} {area}: {by}")
         elif len(by) < MIN_AGREE:
             notes.append(f"single source {chart} {cat} {area}: {by}")
         else:
             agreed[chart].setdefault(cat, {})[area] = values.pop()
-    return agreed, notes
+    return agreed, notes, disputed
+
+
+def merge_same_month(
+    prev: dict[str, object],
+    agreed: dict[str, dict[str, dict[str, str]]],
+    disputed: set[tuple[str, str, str]],
+) -> dict[str, dict[str, dict[str, str]]]:
+    """Today's agreement wins; a cell confirmed earlier this month is kept unless today's
+    sources dispute it. Run from GitHub, Visa Lawyer Blog answers 403 - a publisher
+    going quiet must not delete what two others already confirmed."""
+    out = {c: {cat: dict(row) for cat, row in agreed[c].items()} for c in bulletin.CHARTS}
+    for c in bulletin.CHARTS:
+        for cat, row in dict(prev.get(c) or {}).items():  # type: ignore[call-overload]
+            for area, v in row.items():
+                if (c, cat, area) not in disputed:
+                    out[c].setdefault(cat, {}).setdefault(area, v)
+    return out
 
 
 def main() -> int:
@@ -157,31 +178,36 @@ def main() -> int:
                 print(f"  {p.name}: {sorted(readings[p.name])} ({n} cells)")
             except Exception as e:  # a missing or changed page just does not vote
                 print(f"  {p.name}: skipped ({e})")
-        agreed, notes = consensus(readings)
-        if all(agreed[c] for c in bulletin.CHARTS):
-            break
+        agreed, notes, disputed = consensus(readings)
+        if any(agreed[c] for c in bulletin.CHARTS):
+            break  # partial is fine: cells without agreement show as UNCONFIRMED
         print(f"{month:%B %Y}: not enough agreeing sources yet")
     else:
-        print("no month with agreeing sources; table unchanged")
-        return 1
+        print("no month with agreeing sources yet; table unchanged")
+        return 0  # nothing new today is not a failure
 
     label = month.strftime("%B %Y")
-    if args.out.exists():  # never replace a newer month with an older one
-        import tomllib
-
-        prev = str(tomllib.loads(args.out.read_text()).get("month", ""))
-        if prev and month.strftime("%Y-%m") < prev:
-            print(f"{label} is older than the table's {prev}; table unchanged")
-            return 0
-    chart = uscis_chart(label)
-    data: dict[str, object] = {"month": month.strftime("%Y-%m"), **agreed}
+    ym = month.strftime("%Y-%m")
+    prev_data = tomllib.loads(args.out.read_text()) if args.out.exists() else {}
+    prev = str(prev_data.get("month", ""))
+    if prev and ym < prev:  # never replace a newer month with an older one
+        print(f"{label} is older than the table's {prev}; table unchanged")
+        return 0
+    sources = [f"{n} <{u}>" for n, u in urls.items() if n in readings]
+    if prev == ym:
+        agreed = merge_same_month(prev_data, agreed, disputed)
+        sources += [s for s in prev_data.get("sources", []) if s not in sources]
+    chart = uscis_chart(label) or (
+        prev_data.get("uscis_chart") or None if prev == ym else None
+    )
+    data: dict[str, object] = {"month": ym, **agreed}
     args.out.write_text(
         bulletin.to_toml(
             data,
             source_url="",
             uscis_chart=chart,
             uscis_url=USCIS,
-            sources=[f"{n} <{u}>" for n, u in urls.items() if n in readings],
+            sources=sources,
             method=f"consensus of independent republications, >= {MIN_AGREE} agreeing",
         )
     )

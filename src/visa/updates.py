@@ -46,10 +46,13 @@ def _check_bulletin(new: bytes, old: Path | None) -> str:
     month = str(d.get("month", ""))
     if not re.fullmatch(r"\d{4}-\d{2}", month):
         return "no bulletin month"
+    charts = [d.get(c) for c in ("final_action", "dates_for_filing")]
+    if not any(isinstance(t, dict) and t for t in charts):
+        return "no chart"  # one chart alone is fine: the other shows as UNCONFIRMED
     for chart in ("final_action", "dates_for_filing"):
-        table = d.get(chart)
-        if not isinstance(table, dict) or not table:
-            return f"missing {chart} chart"
+        table = d.get(chart) or {}
+        if not isinstance(table, dict):
+            return f"malformed {chart} chart"
         for cat, row in table.items():
             for area, v in row.items():
                 if not _CELL.fullmatch(str(v)):

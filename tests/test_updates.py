@@ -73,7 +73,7 @@ def test_a_valid_newer_table_replaces_the_shipped_one(home, monkeypatch) -> None
         (table(cell="15MAY"), "unreadable cell"),
         (table(sources=1), "at least two sources"),
         (table(month="2026-07"), "older than the local table"),  # shipped is 2026-10
-        (b'month = "2026-11"\n', "missing final_action"),
+        (b'month = "2026-11"\n', "no chart"),
     ],
 )
 def test_a_bad_download_is_refused(home, monkeypatch, body, why) -> None:
