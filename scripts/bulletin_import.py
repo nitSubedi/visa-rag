@@ -63,7 +63,11 @@ def main() -> int:
     y, mo = (int(x) for x in str(data["month"]).split("-"))
     label = dt.date(y, mo, 1).strftime("%B %Y")
     chart = None if args.no_uscis else uscis_chart(label)
-    args.out.write_text(bulletin.to_toml(data, SOURCE, chart, USCIS))
+    args.out.write_text(
+        bulletin.to_toml(
+            data, SOURCE, chart, USCIS, sources=[SOURCE], method="official bulletin page"
+        )
+    )
     print(f"imported the {label} bulletin -> {args.out}")
     print(f"USCIS chart for employment-based adjustment: {chart or 'not stated yet'}")
     return 0

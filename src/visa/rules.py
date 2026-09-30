@@ -526,7 +526,9 @@ def _priority_decide(f: dict[str, object]) -> Outcome | Needs:
     ):
         cut = b.cutoff(chart, str(cat), area)
         if cut is None:
-            parts.append(f"{name}: not in the table")
+            parts.append(
+                f"{name}: UNCONFIRMED (sources did not agree) — check travel.state.gov"
+            )
             continue
         shown = {"C": "Current", "U": "Unavailable"}.get(cut, cut)
         parts.append(f"{name}: {vb.compare(pd, cut)} (cut-off {shown})")
@@ -537,19 +539,24 @@ def _priority_decide(f: dict[str, object]) -> Outcome | Needs:
         if b.uscis_chart in which
         else " Check which chart USCIS accepts this month on its filing charts page."
     )
-    stale = (
-        ""
-        if b.is_current()
-        else f"THIS IS THE {b.label.upper()} BULLETIN, NOT THIS MONTH'S — dates may have "
-        "moved. "
-    )
+    # The bulletin is published ahead of its month, so next month's is not stale: it is
+    # the one about to apply. Only an older one is out of date.
+    stale = {
+        "current": "",
+        "upcoming": f"Per the {b.label} bulletin, which takes effect "
+        f"{b.month.strftime('%B')} 1, {b.month.year}: ",
+        "stale": f"THIS IS THE {b.label.upper()} BULLETIN, NOT THIS MONTH'S — dates may "
+        "have moved. ",
+    }[b.timing()]
     return Outcome(
         rule,
         f"{stale}{cat}, {area} chargeability, priority date {pd.isoformat()} — "
         + "; ".join(parts)
         + "."
         + chart_note,
-        f"{b.label} Visa Bulletin, employment-based charts.",
+        f"{b.label} Visa Bulletin, employment-based charts ({b.method}"
+        + (f": {'; '.join(x.split(' <')[0] for x in b.sources)}" if b.sources else "")
+        + ").",
         PRIORITY_SOURCES,
     )
 
@@ -573,7 +580,8 @@ RULES: tuple[Rule, ...] = (
         _stem_pending_applies,
         _stem_pending_decide,
         STEM_PENDING_SOURCES,
-    ),    Rule(
+    ),
+    Rule(
         "priority_date_current",
         _priority_applies,
         _priority_decide,

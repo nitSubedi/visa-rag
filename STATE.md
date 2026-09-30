@@ -1096,13 +1096,16 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   both charts, the chart USCIS accepts that month, and the bulletin's month stated in the
   decision, loudly when it is not this month's. Category and priority date are read from
   the question; country of birth, category and date are asked for and saved when missing.
-- The table (`bulletin/visa_bulletin.toml`) ships **empty**: until a month is imported the
-  rule says "NO VISA BULLETIN IS LOADED" and points to travel.state.gov — no date is ever
-  supplied from memory. travel.state.gov returns 403 to every scripted client (the whole
-  domain, with browser headers), so the monthly step is a person's: save the bulletin page
-  in a browser, run `python scripts/bulletin_import.py <page.html>`. The script parses the
-  charts and the month from the page and reads the USCIS chart designation from uscis.gov
-  (reachable), matched by month. Parser tested against the July 2026 bulletin, archived.
+- The table comes from **independent republications that agree**, not from the official
+  page, which no script can read: travel.state.gov returns 403 to every scripted client
+  (pages, PDFs, and the Internet Archive's crawler since July 2026). `scripts/bulletin_update.py`
+  reads the employment charts from four publishers (DiRaimondo & Schroeder, Visa Lawyer
+  Blog, Envoy Global, Fisher Phillips) and keeps a cut-off only when >= 2 state it and
+  none contradicts it — Visa Lawyer Blog's own October table has a truncated cell
+  ("15MAY"), which consensus drops. October 2026: 70 cells, all four agreeing, zero
+  disagreements; shipped. The USCIS chart choice is read from uscis.gov directly. Every
+  answer names its sources and says the bulletin is upcoming, current or stale.
+  `scripts/bulletin_import.py` still reads an official page when one is saved by hand.
 - **Not built:** fetching a newer table (or register) from `bulletin_url` / `register_url`
   at runtime. Both still use the shipped copy unless a file is placed in `~/.visa/`.
 

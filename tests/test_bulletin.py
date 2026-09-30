@@ -56,7 +56,8 @@ def _loaded(monkeypatch, july, month: str = "2026-07", chart: str | None = None)
         month=dt.date.fromisoformat(month + "-01"),
         charts={c: july[c] for c in vb.CHARTS},
         uscis_chart=chart,
-        source_url="",
+        sources=(),
+        method="test",
         uscis_url="",
     )
     monkeypatch.setattr(vb, "load", lambda: b)
@@ -131,7 +132,61 @@ def test_follow_up_replies_are_parsed_by_code(reply, fact, want) -> None:
     assert got.get(fact) == want
 
 
-def test_the_shipped_table_is_empty_until_a_month_is_imported() -> None:
-    """Nothing is served until a maintainer imports a real month from the page."""
+def test_the_shipped_table_says_where_it_came_from() -> None:
+    """Either empty, or stamped with its month, its method and at least two sources."""
+    import tomllib
+
     shipped = Path(__file__).parents[1] / "bulletin" / "visa_bulletin.toml"
-    assert 'month = ""' in shipped.read_text()
+    d = tomllib.loads(shipped.read_text())
+    if d["month"]:
+        assert d["method"] and len(d["sources"]) >= 2
+
+
+def test_a_republisher_format_reads_the_same() -> None:
+    """Envoy prints "July 1, 2024" and "Current", with a Notes column."""
+    rows = [
+        ["Category", "All Others", "China", "India", "Notes"],
+        ["EB-1", "Current", "July 1, 2024", "July 1, 2024", "China and India advance."],
+        ["EB-3 Other Workers", "June 1, 2022", "October 1, 2020", "January 15, 2015", ""],
+    ]
+    t = vb.read_employment(rows, strict=False)
+    assert t["EB-1"] == {"all": "C", "china": "2024-07-01", "india": "2024-07-01"}
+    assert t["EB-3 other workers"]["china"] == "2020-10-01"
+
+
+def test_a_typo_cell_drops_out_instead_of_voting() -> None:
+    rows = [
+        ["Employment-based", "All Chargeability", "INDIA"],
+        ["2nd", "15MAR26", "15MAY"],
+    ]
+    assert vb.read_employment(rows, strict=False) == {"EB-2": {"all": "2026-03-15"}}
+    with pytest.raises(ValueError):
+        vb.read_employment(rows, strict=True)  # the official page must parse fully
+
+
+def test_consensus_needs_two_agreeing_and_no_dissent() -> None:
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
+    from bulletin_update import consensus
+
+    a = {"final_action": {"EB-2": {"all": "2025-01-01", "india": "2013-11-01"}}}
+    b = {"final_action": {"EB-2": {"all": "2025-01-01", "india": "2013-12-01"}}}
+    c = {"final_action": {"EB-2": {"all": "2025-01-01", "china": "2021-10-01"}}}
+    agreed, notes = consensus({"A": a, "B": b, "C": c})
+    assert agreed["final_action"]["EB-2"] == {"all": "2025-01-01"}  # 3 agree
+    assert any("DISAGREE" in n and "india" in n for n in notes)  # A vs B: withheld
+    assert any("single source" in n and "china" in n for n in notes)  # only C: withheld
+
+
+@pytest.mark.parametrize(
+    ("month", "today", "want"),
+    [
+        ("2026-10", "2026-09-30", "upcoming"),  # published ahead: about to apply
+        ("2026-10", "2026-10-15", "current"),
+        ("2026-07", "2026-10-01", "stale"),
+    ],
+)
+def test_next_months_bulletin_is_upcoming_not_stale(month, today, want) -> None:
+    b = vb.Bulletin(dt.date.fromisoformat(month + "-01"), {}, None, (), "", "")
+    assert b.timing(dt.date.fromisoformat(today)) == want
