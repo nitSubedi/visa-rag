@@ -957,6 +957,43 @@ Decision, 2026-09-29: the model stops being the decider.
    labelled as such.
 4. A **narrow v0.1** — F-1 / OPT / STEM OPT / cap-gap — done reliably, then packaged.
 
+**30. Model choice by measurement, verifiers tested, and four rules in code.** 2026-09-29.
+- *Candidates* came from a search filtered by findings 25-28, not by name: qwen3:4b-instruct,
+  qwen3.5:4b (thinking off, `VISA_THINK=false`), granite4.1:3b. Rejected before measuring:
+  Phi-4-mini and Ministral-3B (≈24% on the Vectara hallucination board), Gemma 4 E4B (6.6 GB
+  with vision/audio), everything 8B+.
+- *Scores misranked them again.* qwen3.5 had the best held-out score and invented statutes
+  ("8 U.S.C. § 1145a") and a false tax rule. The sentence-level audit decided it:
+
+  ```
+                       unsupported/answer   answers with any   repeats identical
+  gemma3:4b                   1.7                9/16               7/16
+  qwen3:4b-instruct           0.7                3/16              15/16
+  qwen3.5:4b                  0.9                7/16              16/16
+  granite4.1:3b        (not audited: 56/88 held-out, 9/16 original)
+  ```
+  qwen3:4b-instruct is the default (`e1c3350`). Its own failure — four answers that were a
+  bare "[2]" — was rule 2's "Cite by bracketed number only", read literally; reworded to
+  where the number goes, gone (`a6b5c59`). On a second unseen set (`evals/fresh.py`,
+  12 questions) it tied gemma, 46 vs 45 of 54 — **the model is not the lever**; each had a
+  harmful miss the other did not.
+- *Verifiers.* MiniCheck-Flan-T5-L (0.8B, CPU, 0.7 s/claim) separated clean wrong/right
+  pairs (0.18 vs 0.90 on the STEM-pending inversion) but on real answer sentences did no
+  better than word overlap: 13/27 unsupported at 35% precision, 1/4 on the decisive
+  must/may/cannot sentences. As a warning label it would cry wolf about three times per
+  real catch. Granite Guardian (8B) not tried — over the heat budget. **Misapplied rules
+  are not a verification problem.**
+- *Rules.* `rules.py` now decides full-time CPT vs OPT, remaining unemployment days, travel
+  during a pending change of status, and work during a pending STEM extension — each quoted
+  verbatim from in-force text (checked by test), each fact either stated in the person's
+  words or asked for (an extraction once turned "some CPT last year" into 12 full-time
+  months), each shown by the CLI before the model's prose, and prose that contradicts one
+  is flagged. Final, qwen3:4b-instruct: held-out 84/90, fresh 50/54, original 15/16.
+  h8 and f3 motivated two of the rules, so those two scores are partly fitted.
+- *Still open:* h4 (EB-1A criteria counting — a candidate rule), terse answers ("No. [6]"),
+  h9 (no bulletin data yet), and the regex scorer, which misjudged read answers nine times
+  in one day.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),
