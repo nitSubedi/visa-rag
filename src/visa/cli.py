@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 
 import typer
@@ -355,8 +356,24 @@ def _answer_once(
             c.print("[dim]Closest passages, for what they're worth:[/dim]")
             _render_hits(hits[:4])
         return [], ""
-    # Decided once: the same findings go into the prompt and onto the screen.
-    decided = ans.decide(q, profile.load())
+    # Decided once: the same findings go into the prompt and onto the screen. A rule
+    # that needs a fact asks for it here, before the model writes a word.
+    def _ask(question: str) -> str:
+        # Ctrl-D or Ctrl-C at a question means "not answering", not "abandon the
+        # answer": the rule stays undecided and the model still answers.
+        try:
+            return str(c.input(f"[cyan]? {question}[/cyan] "))
+        except (EOFError, KeyboardInterrupt):
+            c.print()
+            return ""
+
+    def _save(key: str, value: str) -> None:
+        profile.set_value(key, value)
+        c.print(f"[dim]saved to your profile: {key} = {value}[/dim]")
+
+    decided = ans.resolve(
+        q, profile.load(), ask=_ask if sys.stdin.isatty() else None, save=_save
+    )
     msgs = ans.build_prompt(q, hits, turns=turns, decided=decided)
     c.print()
     # A rule the code decided is shown by the code, and first: the model restating it

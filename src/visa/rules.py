@@ -538,3 +538,56 @@ def contradictions(
                     )
                     break
     return out
+
+
+# --- answers to follow-up questions --------------------------------------------------
+# A rule that needs a fact asks for it (Needs.question). The reply is parsed here, by
+# code: a yes/no, or the numbers the person typed. Anything else is treated as no
+# answer, and the rule stays undecided rather than guessing.
+
+# Facts about the person rather than about this question: saved to the profile, so the
+# second question does not ask again.
+PERSIST = {"cpt_full_time_months", "stem_extension"}
+
+_YES = re.compile(r"^\s*(y|yes|yeah|yep|correct|true|i am|i did|it is)\b", re.I)
+_NO = re.compile(
+    r"^\s*(n|no|nope|not|false|i'?m not|i did not|i didn'?t|it isn'?t)\b", re.I
+)
+
+
+def _yes_no(reply: str) -> bool | None:
+    if _YES.search(reply):
+        return True
+    if _NO.search(reply):
+        return False
+    return None
+
+
+def apply_answer(need: Needs, reply: str) -> dict[str, object]:
+    """The facts a reply establishes for the rule that asked, or {} if it establishes
+    none."""
+    t = reply.strip().lower()
+    if not t:
+        return {}
+    if need.fact == "cpt_full_time_months":
+        nums = sorted(_said_numbers(t))
+        if re.search(r"\b(a|one|1) (full |whole )?year\b", t):
+            nums = [12.0]
+        if re.fullmatch(r"(none|zero|no(ne)?)\.?", t):
+            nums = [0.0]
+        return {"cpt_full_time_months": nums[0]} if len(nums) == 1 else {}
+    if need.fact == "unemployment_days":
+        nums = sorted(_said_numbers(t))
+        return {"unemployment_days": nums} if nums else {}
+    yn = _yes_no(t)
+    if yn is None:
+        return {}
+    if need.fact == "stem_extension":
+        return {"stem_extension": yn}
+    if need.fact == "cos_pending":
+        return {"says_pending": yn, "says_decided": not yn}
+    if need.fact == "stem_timely":
+        return {"says_timely": yn}
+    if need.fact == "stem_decided":
+        return {"says_decided": yn, "says_pending": not yn}
+    return {}

@@ -801,7 +801,9 @@ def extract_facts(question: str) -> dict[str, object]:
     }
 
 
-def decide(question: str, prof: dict[str, object]) -> list[rules.Outcome | rules.Needs]:
+def decide(
+    question: str, prof: dict[str, object], extra: dict[str, object] | None = None
+) -> list[rules.Outcome | rules.Needs]:
     """Rules in play for this question, decided from the profile and the question.
     Extraction runs only when a rule could apply, so an unrelated question costs no
     model call. What the question states overrides the profile."""
@@ -813,7 +815,41 @@ def decide(question: str, prof: dict[str, object]) -> list[rules.Outcome | rules
         if STEM_EXTENSION.search(question):
             facts["mentions_stem"] = True
         facts.update(extract_facts(question))
+    facts.update(extra or {})  # the person's answers to follow-up questions win
     return rules.evaluate(facts)
+
+
+def resolve(
+    question: str,
+    prof: dict[str, object],
+    ask: Callable[[str], str] | None = None,
+    save: Callable[[str, str], None] = lambda k, v: None,
+) -> list[rules.Outcome | rules.Needs]:
+    """Decide the rules in play, asking the person for any fact one needs.
+
+    Asking beats guessing, and the reply is parsed by code (rules.apply_answer), so a
+    fact the rule rests on is always one the person gave. Facts about the person are
+    saved so they are asked once; facts about this question are not. Without `ask`
+    (evals, pipes) this is `decide`, and the questions are left for the caller to show.
+    """
+    extra: dict[str, object] = {}
+    decided = decide(question, prof)
+    for _ in range(4):  # a rule can need a second fact once it has the first
+        needs = [r for r in decided if isinstance(r, rules.Needs)]
+        if not needs or ask is None:
+            return decided
+        learned: dict[str, object] = {}
+        for n in needs:
+            learned.update(rules.apply_answer(n, ask(n.question)))
+        if not learned:
+            return decided
+        for k, v in learned.items():
+            if k in rules.PERSIST:
+                save(k, str(v).lower() if isinstance(v, bool) else f"{v:g}")
+                prof = {**prof, k: v}
+        extra.update(learned)
+        decided = decide(question, prof, extra)
+    return decided
 
 
 def plan_issues(question: str, prof: dict[str, object] | None = None) -> list[str]:
