@@ -21,6 +21,7 @@ import datetime as dt
 import re
 import sys
 import tomllib
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
@@ -34,7 +35,15 @@ from bulletin_import import USCIS, uscis_chart  # noqa: E402
 from visa import bulletin  # noqa: E402
 
 MIN_AGREE = 2
-UA = {"User-Agent": "visa-rag bulletin consensus (https://github.com/) Mozilla/5.0"}
+# An honest client name, and the standard headers any client sends. Nothing more: a
+# publisher that refuses this (Colombo & Hurd, 403; Biz Legal, 406 to Python but not
+# curl) is left out rather than imitated.
+UA = {
+    "User-Agent": "visa-rag bulletin consensus (https://github.com/nitSubedi/visa-rag) "
+    "Mozilla/5.0",
+    "Accept": "text/html,application/xhtml+xml",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 @dataclass(frozen=True)
@@ -62,6 +71,11 @@ PUBLISHERS = (
         url="https://www.envoyglobal.com/news-alert/{month}-{year}-visa-bulletin/",
     ),
     Publisher(
+        "T&S Law",  # both charts; post URLs are per-article, found on the category page
+        index="https://tandslaw.com/",  # the "category" URL is a 404 page listing posts
+        link=r'href="(https://tandslaw\.com/{month}-{year}-visa-bulletin[^"]*)"',
+    ),
+    Publisher(
         "Fisher Phillips",
         url="https://www.fisherphillips.com/en/insights/insights/the-fp-visa-bulletin-for-{month}-{year}",
     ),
@@ -82,7 +96,9 @@ def locate(p: Publisher, month: dt.date) -> str | None:
     m = re.search(
         p.link.replace("{month}", fill["month"]).replace("{year}", fill["year"]), page
     )
-    return p.index.split("/updates")[0] + m.group(1) if m else None
+    return (
+        urllib.parse.urljoin(p.index, m.group(1)) if m else None
+    )  # relative or absolute
 
 
 def read(
