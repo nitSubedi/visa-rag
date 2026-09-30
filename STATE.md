@@ -994,6 +994,27 @@ Decision, 2026-09-29: the model stops being the decider.
   h9 (no bulletin data yet), and the regex scorer, which misjudged read answers nine times
   in one day.
 
+**31. Citations-first answers: every quote shown is the source's own text.** 2026-09-30.
+The model answers as JSON — a direct answer, up to four points each with a quote from a
+numbered source and how it applies, and one follow-up question — and `cited.py` keeps a
+quote only if code finds it in a source. Probed before building: 21/29 quotes from
+qwen3:4b-instruct were verbatim in the source cited, and all 8 others were real text broken
+mechanically (sentences joined, the right text under the wrong number, the corpus's own
+`&nbsp;`), so quotes are split into sentences, re-attributed to the source that actually
+contains them, and shown in the source's wording; text found nowhere is dropped and
+reported. Rule-finding quotes count as sources (their text is test-verified).
+```
+                     prose mode (shown)    cited mode (shown)
+held-out (16)             86/90                 84/90
+fresh (12, unseen)        50/54                 52/54
+quotes found nowhere    shown as written      24 of 266 dropped, never shown
+```
+Scores tie; the difference is the guarantee — no invented or misattributed quote reaches
+the person, and the model's own reading is labelled as such. What it does not fix: the
+`answer` and `applies` text is still the model's reasoning (h4's false "yes" to EB-1A, h3's
+misapplied transfer rule), and some quoted passages are true but beside the point.
+Default since `answer_format = "cited"`; `VISA_ANSWER_FORMAT=prose` restores prose.
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),

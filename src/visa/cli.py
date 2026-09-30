@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import answer as ans
-from . import chunk, dates, embed, fetch, profile, register, rules, store, updates
+from . import chunk, cited, dates, embed, fetch, profile, register, rules, store, updates
 from .config import settings, tier_label
 from .models import Chunk, Manifest
 from .search import Hit, Index
@@ -266,8 +266,7 @@ def sources() -> None:
         )
     else:
         c.print(
-            "[red]litigation register: empty — enjoined law will not be "
-            "flagged[/red]"
+            "[red]litigation register: empty — enjoined law will not be flagged[/red]"
         )
     c.print(
         "[dim]Priority dates are intentionally not cached — check travel.state.gov.[/dim]"
@@ -370,6 +369,7 @@ def _answer_once(
             c.print("[dim]Closest passages, for what they're worth:[/dim]")
             _render_hits(hits[:4])
         return [], ""
+
     # Decided once: the same findings go into the prompt and onto the screen. A rule
     # that needs a fact asks for it here, before the model writes a word.
     def _ask(question: str) -> str:
@@ -404,12 +404,46 @@ def _answer_once(
     for ask in rules.questions(decided):
         c.print(f"[cyan]? To answer this properly I need to know:[/cyan] {ask}")
 
+    dropped: list[str] = []
+    if settings.answer_format == "cited":
+        # The answer arrives as JSON and only quotes that are the sources' own text are
+        # shown — see cited.py. Not streamed: a quote is checked before it is printed.
+        try:
+            with c.status("[dim]reading the sources…[/dim]"):
+                got = ans.cited_answer(msgs, hits, decided)
+        except Exception as e:
+            c.print(f"[red]generation failed:[/red] {e}")
+            return [], ""
+        labels = ans.cited_labels(hits, decided)
+        c.print(got.answer + "\n")
+        if got.points:
+            body = []
+            for p in got.points:
+                body.append(f"[yellow][{p.source}][/yellow] {labels[p.source - 1]}")
+                body.append(f'  "{p.quote}"')
+                if p.applies and not cited._echoes(p.applies, p.quote):
+                    body.append(
+                        f"  [dim]how it applies (the tool's reading):[/dim] {p.applies}"
+                    )
+            c.print(
+                Panel(
+                    "\n".join(body),
+                    title="[cyan]what the sources say[/cyan]",
+                    subtitle="[dim]each quote checked word for word[/dim]",
+                    border_style="cyan",
+                )
+            )
+        if got.ask:
+            c.print(f"[cyan]? One thing that would change this:[/cyan] {got.ask}")
+        dropped = got.dropped
+        text = "\n".join([got.answer, *(p.applies for p in got.points)])
     buf: list[str] = []
     first = True
     status = c.status("[dim]reading the sources…[/dim]")
-    status.start()
+    if settings.answer_format != "cited":
+        status.start()
     try:
-        for tok in ans.stream_chat(msgs):
+        for tok in [] if settings.answer_format == "cited" else ans.stream_chat(msgs):
             if first:
                 status.stop()
                 first = False
@@ -420,10 +454,11 @@ def _answer_once(
         c.print(f"\n[red]generation failed:[/red] {e}")
         return [], ""
     finally:
-        if first:
+        if first and settings.answer_format != "cited":
             status.stop()
-    c.print("\n")
-    text = "".join(buf)
+    if settings.answer_format != "cited":
+        c.print("\n")
+        text = "".join(buf)
     # Show the computed deadlines rather than trusting the model to repeat them.
     # verify_dates catches a date the model got *wrong*; nothing caught a date it
     # simply omitted, and omission is the common failure — three of the eval's date
@@ -445,8 +480,7 @@ def _answer_once(
                 body.append(f"Still in force: {' '.join(entry.not_covered.split())}")
             body.append("")
             age = (
-                f"litigation status last checked {entry.checked} "
-                f"({entry.age_days}d ago)"
+                f"litigation status last checked {entry.checked} ({entry.age_days}d ago)"
             )
             body.append(
                 f"[red]{age} — verify before relying on it[/red]"
@@ -477,7 +511,12 @@ def _answer_once(
     # count is not actionable: the reader still has to work out whether each claim is
     # supported somewhere in the slate or not supported at all. Ask instead, and fall
     # back to the count only when attribution cannot run.
-    claims = ans.uncited_claims(text) if settings.attribute_claims else []
+    # In cited mode every shown quote is already checked; attribution is for prose.
+    claims = (
+        ans.uncited_claims(text)
+        if settings.attribute_claims and settings.answer_format != "cited"
+        else []
+    )
     attributed: dict[int, int | None] = {}
     if claims:
         with c.status("[dim]checking what supports each claim…[/dim]"):
@@ -489,6 +528,11 @@ def _answer_once(
         )
         + ans.verify_dialogue(text)
         + rules.contradictions(text, decided, q)
+        + (
+            [f"{len(dropped)} quoted sentence(s) were found in no source and not shown"]
+            if dropped
+            else []
+        )
         + ([] if attributed else ans.verify_grounding(text))
     )
     if attributed:
@@ -499,11 +543,10 @@ def _answer_once(
             src = attributed[i]
             head = " ".join(claim.split())[:74]
             if src is None:
-                lines.append(f"[red]no source states this[/red] — \"{head}…\"")
+                lines.append(f'[red]no source states this[/red] — "{head}…"')
             else:
                 lines.append(
-                    f"[yellow][{src}][/yellow] {hits[src - 1].row.citation} "
-                    f"— \"{head}…\""
+                    f'[yellow][{src}][/yellow] {hits[src - 1].row.citation} — "{head}…"'
                 )
         if lines:
             unsupported = sum(1 for v in attributed.values() if v is None)
