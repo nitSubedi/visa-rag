@@ -1118,10 +1118,14 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   History was rewritten before the first push: author email -> GitHub no-reply, and a
   sentence describing the author's own situation removed from every STATE.md version
   (backup bundle kept outside the repo).
-- **Coverage gap:** GitHub's runners get 403 from Visa Lawyer Blog, leaving one Final
-  Action source reachable from there (DiRaimondo & Schroeder). Dates for Filing has three.
-  For a new month, Final Action cut-offs show UNCONFIRMED until a second source reachable
-  from GitHub is added to `PUBLISHERS`. Cells confirmed earlier in a month are kept.
+- **Coverage:** five publishers (DiRaimondo & Schroeder, Visa Lawyer Blog, Envoy Global,
+  T&S Law, Fisher Phillips). GitHub runners sometimes get 403 from Visa Lawyer Blog (it
+  varies by runner), so Final Action must not depend on it: T&S Law adds a second Final
+  Action source reachable from GitHub. Rebuilt from scratch without Visa Lawyer Blog,
+  Final Action has 15 agreed cells (EB-1/2/3/Other Workers x all/China/India); Mexico and
+  Philippines Final Action need a third source that day. Dates for Filing has four.
+  Left out on purpose: Colombo & Hurd (403) and Biz Legal (406 to Python, not curl) —
+  a publisher that refuses an honest client is not imitated.
 
 **Product plan (finding 29)** — deterministic rules → follow-up questions →
 citations-first answers → narrow v0.1 (F-1 / OPT / STEM / cap-gap) → .dmg/.exe. UI and
