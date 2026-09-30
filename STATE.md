@@ -1106,8 +1106,15 @@ Post-generation checks are `verify_citations`, `verify_dates`, `verify_grounding
   disagreements; shipped. The USCIS chart choice is read from uscis.gov directly. Every
   answer names its sources and says the bulletin is upcoming, current or stale.
   `scripts/bulletin_import.py` still reads an official page when one is saved by hand.
-- **Not built:** fetching a newer table (or register) from `bulletin_url` / `register_url`
-  at runtime. Both still use the shipped copy unless a file is placed in `~/.visa/`.
+- **Runtime updates** (`updates.py`): `visa ask` and the REPL check `register_url` and
+  `bulletin_url` at most once a day (`updates_every_hours`); `visa refresh` forces it. A
+  download replaces the local copy only if it passes the loaders' own checks and is not
+  older than what is here (no rollback of the bulletin month or the register's `checked`
+  date), and is written atomically; offline or a bad download keeps the current copy, and
+  the shipped copy is always the floor. The request is the configured URL and a generic
+  User-Agent — nothing about the user. **Both URLs are empty** until the repo is published
+  somewhere (no git remote yet); `scripts/bulletin_update.py` then needs a monthly schedule
+  that commits its output there.
 
 **Product plan (finding 29)** — deterministic rules → follow-up questions →
 citations-first answers → narrow v0.1 (F-1 / OPT / STEM / cap-gap) → .dmg/.exe. UI and

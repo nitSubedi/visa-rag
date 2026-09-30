@@ -13,7 +13,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import answer as ans
-from . import chunk, dates, embed, fetch, profile, register, rules, store
+from . import chunk, dates, embed, fetch, profile, register, rules, store, updates
 from .config import settings, tier_label
 from .models import Chunk, Manifest
 from .search import Hit, Index
@@ -134,6 +134,7 @@ def index(
 @app.command()
 def refresh(force: bool = typer.Option(False, "--force")) -> None:
     """Re-download sources whose cached copy is older than their refresh cadence."""
+    _check_updates(force=True, verbose=True)
     for s in load_defs():
         mf = s.dir / "manifest.json"
         man = Manifest.model_validate_json(mf.read_text()) if mf.exists() else None
@@ -321,12 +322,25 @@ def _render_hits(hits: list[Hit], full: int | None = None) -> None:
     c.print(t)
 
 
+def _check_updates(force: bool = False, verbose: bool = False) -> None:
+    """Newer injunction register and Visa Bulletin table, at most once a day. Quiet
+    unless something changed or a download was refused; offline is not an error."""
+    for r in updates.refresh_all(force=force):
+        if r.status == "updated":
+            c.print(f"[green]{r.name}: updated[/green]")
+        elif r.status == "kept" and r.detail.startswith("rejected"):
+            c.print(f"[red]{r.name}: {r.detail}[/red]")
+        elif verbose:
+            c.print(f"[dim]{r.name}: {r.detail}[/dim]")
+
+
 @app.command()
 def ask(
     question: str | None = typer.Argument(None),
     k: int | None = typer.Option(None, "-k"),
 ) -> None:
     """Ask a question. With no argument, opens a REPL."""
+    _check_updates()
     idx = _load_index()
     if question:
         _answer_once(idx, question, k)

@@ -112,6 +112,10 @@ class Settings(BaseSettings):
 
     # Where to pull a newer Visa Bulletin table from, same contract as register_url.
     bulletin_url: str = ""
+    # How often to look for a newer register or bulletin. The bulletin changes monthly
+    # and an injunction can change any day; a day bounds the lag without a request on
+    # every question.
+    updates_every_hours: int = 24
 
     @property
     def bulletin(self) -> Path:
