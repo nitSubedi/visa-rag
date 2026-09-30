@@ -197,6 +197,7 @@ def main() -> int:
     if prev == ym:
         agreed = merge_same_month(prev_data, agreed, disputed)
         sources += [s for s in prev_data.get("sources", []) if s not in sources]
+    sources = sorted(set(sources))  # stable order: no commit when only the order moved
     chart = uscis_chart(label) or (
         prev_data.get("uscis_chart") or None if prev == ym else None
     )
