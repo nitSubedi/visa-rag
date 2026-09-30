@@ -29,7 +29,11 @@ class Settings(BaseSettings):
     # vs 11 GB. On an 18 GB machine the 14b forces ~4.6 GB of the user's running
     # applications out to swap, which is what made the tool unusable alongside other
     # work. The smaller model is better here on every axis measured.
-    chat_model: str = "qwen2.5:7b"
+    # Chosen 2026-09-29 over gemma3:4b, qwen3.5:4b and granite4.1:3b (STATE.md finding
+    # 30): fewest unsupported claims in a sentence-level audit, the steadiest across
+    # repeats, and the fastest. Not smarter at applying rules — no model was; that is
+    # what rules.py is for.
+    chat_model: str = "qwen3:4b-instruct"
     # Reasoning ("thinking") for models that have it, e.g. qwen3.5 — on by default
     # there, and it spent 235 tokens on "150 minus 110". None sends nothing, because a
     # model without thinking may reject the parameter. VISA_THINK=false to turn it off.

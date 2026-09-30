@@ -33,7 +33,7 @@ Needs [Ollama](https://ollama.com) and Python 3.11+.
 
 ```bash
 ollama pull nomic-embed-text     # 274 MB — embeddings
-ollama pull qwen2.5:7b           # 4.7 GB — reasoning
+ollama pull qwen3:4b-instruct    # 2.5 GB — reading and explaining
 
 pip install -e .
 visa init                        # downloads the corpus, builds the index (~6 min)
@@ -111,7 +111,7 @@ Use `/sources N` to read the passage behind any claim.
 
 ```bash
 python evals/run.py --repeat 3              # score the current setup
-python evals/run.py --model qwen2.5:14b     # compare a model
+python evals/run.py --model gemma3:4b       # compare a model
 python evals/run.py --strategy single       # compare retrieval strategy
 ```
 
