@@ -15,6 +15,7 @@ given says which fact it needs — that is a question to ask the person, never a
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -274,6 +275,123 @@ def _unemployment_decide(f: dict[str, object]) -> Outcome | Needs:
     )
 
 
+# --- stated situations -------------------------------------------------------------
+# Yes/no facts read straight from the person's words, so they are stated by
+# construction. A pattern that does not match means "not said", which a rule turns
+# into a question, never into a default.
+
+_SITUATIONS = {
+    "says_cos": r"change (of|in) (nonimmigrant )?status|\bCOS\b",
+    "says_pending": r"pending|not (yet )?(been )?(approved|decided)|"
+    r"hasn.t (been )?(approved|decided)|waiting|no decision",
+    "says_decided": r"\b(approved|denied|rejected)\b(?![^.]{0,20}\byet\b)",
+    "says_travel": r"travel|abroad|leave the (U\.?S|country|United States)|outside the "
+    r"(U\.?S|United States)|go home|trip",
+    "says_stem_filed": r"(filed|applied|submitted)[^.]{0,40}STEM|STEM[^.]{0,40}(filed|"
+    r"applied|submitted|application|pending)",
+    "says_timely": r"on time|timely|before (my|the) (OPT |EAD |OPT EAD )?(card )?"
+    r"expir",
+    "says_ead_expired": r"(EAD|OPT|card)[^.]{0,30}(expired|ran out|ended)",
+}
+
+
+def read_situation(question: str) -> dict[str, object]:
+    return {
+        k: True for k, rx in _SITUATIONS.items() if re.search(rx, question, re.IGNORECASE)
+    }
+
+
+# --- travel while a change of status is pending -----------------------------------
+# Not 8 CFR 248.1(f): it says the same thing but was added by the enjoined rule and is
+# withheld. The Policy Manual statements predate that rule and are in force.
+
+COS_TRAVEL_SOURCES = (
+    Source(
+        "USCIS PM Vol 2, Pt F, Ch 8, A.5",
+        "If a nonimmigrant travels abroad while their COS application is pending, USCIS "
+        "considers that COS application abandoned.",
+    ),
+    Source(
+        "USCIS PM Vol 2, Pt F, Ch 5, D.3",
+        "If an F-1 student travels abroad while the application for change of status to "
+        "H-1B is still pending, the change of status portion of the petition is deemed "
+        "abandoned.",
+    ),
+)
+
+
+def _cos_travel_applies(f: dict[str, object]) -> bool:
+    return bool(f.get("says_cos") and f.get("says_travel"))
+
+
+def _cos_travel_decide(f: dict[str, object]) -> Outcome | Needs:
+    rule = "cos_travel_abandonment"
+    if not f.get("says_pending") or f.get("says_decided"):
+        return Needs(
+            rule,
+            "cos_pending",
+            "Is your change of status application still pending (not yet approved or "
+            "denied)?",
+        )
+    return Outcome(
+        rule,
+        "Travelling abroad while the change of status is pending ABANDONS the change of "
+        "status request.",
+        "the change of status is pending and the question is about travelling abroad.",
+        COS_TRAVEL_SOURCES,
+    )
+
+
+# --- working while a STEM OPT extension is pending ----------------------------------
+
+STEM_PENDING_SOURCES = (
+    Source(
+        "USCIS PM Vol 2, Pt F, Ch 5, C.5",
+        "A student who has timely and properly filed a Form I-765 for the 24-month STEM "
+        "OPT extension may continue working until the date of the USCIS written "
+        "decision on the current Form I-765 or for up to 180 days after the "
+        "student\u2019s current post-completion OPT expires, whichever is earlier.",
+    ),
+)
+
+
+def _stem_pending_applies(f: dict[str, object]) -> bool:
+    return bool(
+        f.get("says_stem_filed") and (f.get("says_ead_expired") or f.get("says_pending"))
+    )
+
+
+def _stem_pending_decide(f: dict[str, object]) -> Outcome | Needs:
+    rule = "stem_pending_work"
+    if f.get("says_decided"):
+        return Needs(
+            rule, "stem_decided", "Has USCIS already decided your STEM OPT extension?"
+        )
+    if not f.get("says_timely"):
+        return Needs(
+            rule,
+            "stem_timely",
+            "Did you file the STEM OPT extension before your OPT EAD expired, after your "
+            "DSO's recommendation?",
+        )
+    until = "180 days after your post-completion OPT expired"
+    end = f.get("opt_end_date")
+    try:
+        d = end if isinstance(end, dt.date) else dt.date.fromisoformat(str(end))
+        until = (
+            f"{(d + dt.timedelta(days=180)).isoformat()} (180 days after {d.isoformat()})"
+        )
+    except (TypeError, ValueError):
+        pass
+    return Outcome(
+        rule,
+        "You MAY CONTINUE WORKING while the timely filed STEM OPT extension is pending — "
+        f"until USCIS decides, or until {until}, whichever is earlier.",
+        "the STEM OPT extension was filed on time and USCIS has not decided it.",
+        STEM_PENDING_SOURCES,
+    )
+
+
 RULES: tuple[Rule, ...] = (
     Rule("cpt_full_time_year", _cpt_applies, _cpt_decide, CPT_SOURCES),
     Rule(
@@ -281,6 +399,18 @@ RULES: tuple[Rule, ...] = (
         _unemployment_applies,
         _unemployment_decide,
         UNEMPLOYMENT_SOURCES,
+    ),
+    Rule(
+        "cos_travel_abandonment",
+        _cos_travel_applies,
+        _cos_travel_decide,
+        COS_TRAVEL_SOURCES,
+    ),
+    Rule(
+        "stem_pending_work",
+        _stem_pending_applies,
+        _stem_pending_decide,
+        STEM_PENDING_SOURCES,
     ),
 )
 
@@ -370,6 +500,27 @@ def contradictions(
                         out.append(
                             f'the answer says "{n} days"; the rule computed: {r.decision}'
                         )
+        elif r.rule == "cos_travel_abandonment":
+            for s in sents:
+                if re.search(r"\b(not|n't|never)\b[^.]{0,25}abandon", s, re.I):
+                    head = " ".join(s.split())[:90]
+                    out.append(
+                        f'the answer says "{head}"; the rule decided: {r.decision}'
+                    )
+                    break
+        elif r.rule == "stem_pending_work":
+            for s in sents:
+                if re.search(
+                    r"not (be )?authorized to work|(cannot|can't|must not|may not) "
+                    r"(continue |keep )?work|must stop working|stop working",
+                    s,
+                    re.I,
+                ):
+                    head = " ".join(s.split())[:90]
+                    out.append(
+                        f'the answer says "{head}"; the rule decided: {r.decision}'
+                    )
+                    break
         elif r.rule == "cpt_full_time_year":
             barred = r.decision.startswith("INELIGIBLE")
             for s in sents:

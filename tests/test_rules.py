@@ -205,3 +205,77 @@ def test_a_day_count_the_code_did_not_produce_is_flagged(prose, flagged) -> None
 def test_a_verdict_the_code_did_not_reach_is_flagged(months, prose, flagged) -> None:
     decided = rules.evaluate({"cpt_full_time_months": months})
     assert bool(rules.contradictions(prose, decided)) is flagged
+
+
+def _rule(q: str, prof: dict[str, object] | None = None, rule: str = "") -> object:
+    facts = {**(prof or {}), **rules.read_situation(q)}
+    got = [r for r in rules.evaluate(facts) if r.rule == rule]
+    return got[0] if got else None
+
+
+H8 = (
+    "I have a pending change of status from F-1 to H-1B. If I travel abroad for two "
+    "weeks, what happens to my application?"
+)
+F3 = (
+    "I filed my STEM OPT extension on time, but my OPT EAD expired last week and USCIS "
+    "hasn't decided yet. Can I keep working?"
+)
+
+
+def test_travel_while_cos_pending_is_abandonment() -> None:
+    o = _rule(H8, rule="cos_travel_abandonment")
+    assert isinstance(o, rules.Outcome) and "ABANDONS" in o.decision
+    assert not any("248.1" in s.citation for s in o.sources)  # enjoined; not relied on
+
+
+@pytest.mark.parametrize(
+    "q",
+    [
+        "My change of status was approved. Can I travel?",
+        "I filed a change of status. Can I go home for a trip?",
+    ],
+)
+def test_cos_travel_asks_when_pending_is_not_stated(q) -> None:
+    assert isinstance(_rule(q, rule="cos_travel_abandonment"), rules.Needs)
+
+
+def test_no_cos_rule_without_travel() -> None:
+    q = "My change of status is pending. What now?"
+    assert _rule(q, rule="cos_travel_abandonment") is None
+
+
+def test_timely_stem_filing_keeps_work_authorization() -> None:
+    o = _rule(F3, {"opt_end_date": "2026-09-20"}, rule="stem_pending_work")
+    assert isinstance(o, rules.Outcome) and "MAY CONTINUE WORKING" in o.decision
+    assert "2027-03-19" in o.decision  # 2026-09-20 + 180 days
+
+
+def test_stem_pending_asks_if_timeliness_is_not_stated() -> None:
+    q = "I filed my STEM OPT extension and my EAD expired. Can I keep working?"
+    n = _rule(q, rule="stem_pending_work")
+    assert isinstance(n, rules.Needs) and n.fact == "stem_timely"
+
+
+@pytest.mark.parametrize(
+    ("q", "rule", "prose"),
+    [
+        (H8, "cos_travel_abandonment", "your application is **not abandoned**."),
+        (F3, "stem_pending_work", "No. You are not authorized to work."),
+    ],
+)
+def test_the_observed_inversions_are_flagged(q, rule, prose) -> None:
+    """qwen3:4b-instruct wrote both of these, each the opposite of the law."""
+    decided = rules.evaluate(rules.read_situation(q))
+    assert rules.contradictions(prose, decided, q)
+
+
+@pytest.mark.parametrize(
+    ("q", "prose"),
+    [
+        (H8, "Travelling abroad now means your change of status is abandoned."),
+        (F3, "Yes, you may continue working while the extension is pending."),
+    ],
+)
+def test_agreeing_prose_is_not_flagged(q, prose) -> None:
+    assert rules.contradictions(prose, rules.evaluate(rules.read_situation(q)), q) == []

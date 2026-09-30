@@ -806,6 +806,7 @@ def decide(question: str, prof: dict[str, object]) -> list[rules.Outcome | rules
     Extraction runs only when a rule could apply, so an unrelated question costs no
     model call. What the question states overrides the profile."""
     facts: dict[str, object] = dict(prof)
+    facts.update(rules.read_situation(question))
     hit = {k for k, rx in RULE_TRIGGERS.items() if rx.search(question)}
     if hit:
         facts.update(dict.fromkeys(hit, True))
