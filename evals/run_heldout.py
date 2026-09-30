@@ -64,7 +64,8 @@ def main() -> int:
         for mod in [m for m in list(sys.modules) if m.startswith("visa")]:
             del sys.modules[mod]
         from visa import answer as ans
-        from visa import dates, profile, rules
+        from visa import cited, dates, profile, rules
+        from visa.config import settings
         from visa.search import Index
 
         idx = Index.load()
@@ -73,16 +74,25 @@ def main() -> int:
             hits, gated, warnings = ans.answer(sc.question, idx)
             decided = ans.decide(sc.question, profile.load())
             prose = ""
+            dropped: list[str] = []
+            moved = 0
             if gated:
                 msgs = ans.build_prompt(sc.question, hits, decided=decided)
-                prose = "".join(ans.stream_chat(msgs, temperature=0.0))
+                if settings.answer_format == "cited":
+                    got = ans.cited_answer(msgs, hits, decided)
+                    prose = cited.render(got, ans.cited_labels(hits, decided))
+                    dropped = got.dropped
+                    moved = sum(p.moved for p in got.points)
+                else:
+                    prose = "".join(ans.stream_chat(msgs, temperature=0.0))
             refusal = "" if gated else ans.GATE_REFUSAL  # what the CLI prints instead
             findings = rules.render(decided, head="") if gated else ""
             shown = "\n".join(
                 [*warnings, refusal, prose, findings, dates.render(profile.load())]
             )
             saved.setdefault(sc.slug, []).append(
-                {"gated": gated, "warnings": warnings, "prose": prose}
+                {"gated": gated, "warnings": warnings, "prose": prose, "dropped": dropped,
+                 "moved": moved}
             )
             for view, text in (("prose", prose), ("shown", shown)):
                 for c in sc.checks:

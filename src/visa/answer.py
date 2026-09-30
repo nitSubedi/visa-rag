@@ -9,7 +9,7 @@ import urllib.request
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
-from . import dates, profile, register, rules, terminology
+from . import cited, dates, profile, register, rules, terminology
 from .cites import CFR_SECTION
 from .config import settings, tier_label
 from .search import Hit, Index, passes_gate
@@ -111,8 +111,23 @@ def render_history(turns: list[Turn], budget: int | None = None) -> str:
 # A question that cannot stand on its own: too short to embed usefully, or opening
 # with something that points back at what was just said.
 ANAPHORIC_OPENERS = (
-    "what if", "and ", "but ", "so ", "then ", "what about", "how about",
-    "why ", "no ", "yes ", "it ", "that ", "they ", "he ", "she ", "ok", "okay",
+    "what if",
+    "and ",
+    "but ",
+    "so ",
+    "then ",
+    "what about",
+    "how about",
+    "why ",
+    "no ",
+    "yes ",
+    "it ",
+    "that ",
+    "they ",
+    "he ",
+    "she ",
+    "ok",
+    "okay",
 )
 
 
@@ -432,8 +447,18 @@ MONTHS = {
     m: i
     for i, full in enumerate(
         [
-            "january", "february", "march", "april", "may", "june",
-            "july", "august", "september", "october", "november", "december",
+            "january",
+            "february",
+            "march",
+            "april",
+            "may",
+            "june",
+            "july",
+            "august",
+            "september",
+            "october",
+            "november",
+            "december",
         ],
         1,
     )
@@ -512,6 +537,57 @@ DEONTIC_RE = re.compile(
 )
 
 
+def served_texts(hits: list[Hit]) -> list[str]:
+    """What the model was actually shown for each slot: enjoined text withheld."""
+    reg = register.load()
+    return [
+        ""
+        if register.suspended(h.row.citation, h.row.text, reg)
+        else register.redact(h.row.citation, h.row.text, reg)[0]
+        for h in hits
+    ]
+
+
+def cited_answer(
+    messages: list[dict[str, str]],
+    hits: list[Hit],
+    decided: list[rules.Outcome | rules.Needs] | None = None,
+) -> cited.Checked:
+    """Ask for the answer as JSON and keep only quotes that are the sources' own text.
+    A reply that is not valid JSON falls back to prose rather than to nothing.
+
+    The rule findings' quotes are verifiable text too (tests check each against the
+    served corpus), and the model quotes them: without them as sources, the 90-day
+    unemployment rule — quoted correctly from the findings — was dropped as found
+    "in no source". They are appended after the retrieved slots, numbered on from them."""
+    msgs = [
+        *messages[:-1],
+        {**messages[-1], "content": messages[-1]["content"] + "\n\n" + cited.INSTRUCTION},
+    ]
+    raw = "".join(stream_chat(msgs, temperature=0.0, fmt=cited.SCHEMA))
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return cited.Checked(answer=raw.strip(), points=[], ask="")
+    extra = [
+        s.quote for o in decided or [] if isinstance(o, rules.Outcome) for s in o.sources
+    ]
+    return cited.check(data if isinstance(data, dict) else {}, served_texts(hits) + extra)
+
+
+def cited_labels(
+    hits: list[Hit], decided: list[rules.Outcome | rules.Needs] | None = None
+) -> list[str]:
+    """Citation for each text `cited_answer` checked against, in the same order."""
+    extra = [
+        s.citation
+        for o in decided or []
+        if isinstance(o, rules.Outcome)
+        for s in o.sources
+    ]
+    return [h.row.citation for h in hits] + extra
+
+
 def blocks(text: str) -> list[str]:
     """Paragraphs and list items — the unit a citation is understood to cover.
 
@@ -552,7 +628,7 @@ def verify_grounding(text: str) -> list[str]:
         return []
     return [
         f"{len(ungrounded)} passage(s) state what you must or may do without citing a "
-        f"source — first: \"{' '.join(ungrounded[0].split())[:90]}…\""
+        f'source — first: "{" ".join(ungrounded[0].split())[:90]}…"'
     ]
 
 
@@ -636,9 +712,7 @@ def attribute_claims(
         {"role": "user", "content": ask},
     ]
     try:
-        raw = "".join(
-            stream_chat(convo, temperature=0.0, fmt=ATTRIBUTION_SCHEMA)
-        )
+        raw = "".join(stream_chat(convo, temperature=0.0, fmt=ATTRIBUTION_SCHEMA))
     except Exception:
         return {}
     return parse_attributions(raw, len(claims), len(hits))
@@ -769,6 +843,7 @@ def extract_facts(question: str) -> dict[str, object]:
     """Pull the facts rules need out of the question — copying a stated number, the
     one kind of step small models do reliably. Constrained to a schema; anything it
     cannot find is null, and a null becomes a question to the person, not a guess."""
+
     def prop(kind: str) -> dict[str, object]:
         if kind == "array":
             return {"type": ["array", "null"], "items": {"type": "number"}}

@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     # repeats, and the fastest. Not smarter at applying rules — no model was; that is
     # what rules.py is for.
     chat_model: str = "qwen3:4b-instruct"
+    # "cited": the answer as JSON with quotes checked word for word against the sources
+    # (cited.py). "prose": free text with inline [n]. See STATE.md finding 31.
+    answer_format: str = "cited"
     # Reasoning ("thinking") for models that have it, e.g. qwen3.5 — on by default
     # there, and it spent 235 tokens on "150 minus 110". None sends nothing, because a
     # model without thinking may reject the parameter. VISA_THINK=false to turn it off.
