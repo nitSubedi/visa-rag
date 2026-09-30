@@ -108,10 +108,15 @@ class Settings(BaseSettings):
     register_refresh_days: int = 14
     # Where to pull a newer register from. Empty means use the copy shipped with the
     # code — an unreachable URL must degrade to that floor, never to silence.
-    register_url: str = ""
+    register_url: str = (
+        "https://raw.githubusercontent.com/nitSubedi/visa-rag/main/register/injunctions.toml"
+    )
 
     # Where to pull a newer Visa Bulletin table from, same contract as register_url.
-    bulletin_url: str = ""
+    # Rebuilt daily by .github/workflows/bulletin.yml from agreeing republications.
+    bulletin_url: str = (
+        "https://raw.githubusercontent.com/nitSubedi/visa-rag/main/bulletin/visa_bulletin.toml"
+    )
     # How often to look for a newer register or bulletin. The bulletin changes monthly
     # and an injunction can change any day; a day bounds the lag without a request on
     # every question.
