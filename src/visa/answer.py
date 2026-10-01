@@ -255,6 +255,8 @@ def has_system_role(model: str) -> bool:
     renders a system message as a user turn of its own, so the model saw our rules as
     a separate message from someone, followed by a second one holding the question.
     Read from the model's own metadata; unknown means leave the messages alone."""
+    if settings.backend != "ollama":
+        return True  # llama.cpp applies the model's own chat template, roles included
     if model not in _SYSTEM_ROLE:
         try:
             req = urllib.request.Request(
@@ -289,6 +291,66 @@ def fold_system(messages: list[dict[str, str]]) -> list[dict[str, str]]:
 
 
 def stream_chat(
+    messages: list[dict[str, str]],
+    model: str | None = None,
+    temperature: float = 0.15,
+    fmt: dict[str, object] | None = None,
+    max_tokens: int | None = None,
+) -> Iterator[str]:
+    """Stream a reply from whichever backend is configured. `fmt` is a JSON schema;
+    both backends mask tokens that would violate it during sampling."""
+    if settings.backend == "llamacpp":
+        return _llamacpp_chat(messages, temperature, fmt, max_tokens)
+    return _ollama_chat(messages, model, temperature, fmt, max_tokens)
+
+
+def _llamacpp_chat(
+    messages: list[dict[str, str]],
+    temperature: float,
+    fmt: dict[str, object] | None,
+    max_tokens: int | None,
+) -> Iterator[str]:
+    """llama.cpp's OpenAI-compatible endpoint, streamed as server-sent events. The
+    model and context size are fixed when runtime.py starts the server."""
+    payload: dict[str, object] = {
+        "messages": messages,
+        "stream": True,
+        "temperature": temperature,
+        "max_tokens": max_tokens or settings.answer_reserve_tokens,
+    }
+    if fmt is not None:
+        payload["response_format"] = {
+            "type": "json_schema",
+            "json_schema": {"name": "reply", "schema": fmt},
+        }
+    req = urllib.request.Request(
+        f"{settings.llamacpp_chat_url}/v1/chat/completions",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+    )
+    with urllib.request.urlopen(req, timeout=600) as r:
+        for line in r:
+            line = line.strip()
+            if not line.startswith(b"data:"):
+                continue
+            data = line[5:].strip()
+            if data == b"[DONE]":
+                break
+            try:
+                d = json.loads(data)
+            except json.JSONDecodeError:
+                continue
+            if d.get("error"):
+                raise RuntimeError(d["error"])
+            choice = (d.get("choices") or [{}])[0]
+            tok = (choice.get("delta") or {}).get("content") or ""
+            if tok:
+                yield tok
+            if choice.get("finish_reason"):
+                break
+
+
+def _ollama_chat(
     messages: list[dict[str, str]],
     model: str | None = None,
     temperature: float = 0.15,
@@ -902,7 +964,7 @@ def decide(
 def resolve(
     question: str,
     prof: dict[str, object],
-    ask: Callable[[str], str] | None = None,
+    ask: Callable[[rules.Needs], str] | None = None,
     save: Callable[[str, str], None] = lambda k, v: None,
 ) -> list[rules.Outcome | rules.Needs]:
     """Decide the rules in play, asking the person for any fact one needs.
@@ -920,7 +982,7 @@ def resolve(
             return decided
         learned: dict[str, object] = {}
         for n in needs:
-            learned.update(rules.apply_answer(n, ask(n.question)))
+            learned.update(rules.apply_answer(n, ask(n)))
         if not learned:
             return decided
         for k, v in learned.items():

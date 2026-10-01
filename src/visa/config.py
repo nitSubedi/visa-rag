@@ -24,6 +24,12 @@ class Settings(BaseSettings):
 
     home: Path = Field(default_factory=lambda: Path.home() / ".visa")
     ollama_host: str = "http://localhost:11434"
+    # "ollama" (a separate app), or "llamacpp": llama.cpp's own server, bundled in the
+    # desktop app and started by runtime.py. Same model files, same output — measured
+    # word for word, and embeddings at cosine 1.000000 (STATE.md finding 32).
+    backend: str = "ollama"
+    llamacpp_chat_url: str = "http://127.0.0.1:8790"
+    llamacpp_embed_url: str = "http://127.0.0.1:8791"
     embed_model: str = "nomic-embed-text"
     # 7b, not 14b. Measured on this corpus: 13/16 vs 12/16, 185s vs 361s, and 5.5 GB
     # vs 11 GB. On an 18 GB machine the 14b forces ~4.6 GB of the user's running

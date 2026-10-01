@@ -1,4 +1,4 @@
-"""Embeddings via local Ollama. Never leaves the machine."""
+"""Embeddings via local Ollama or the bundled llama.cpp server. Stays on the machine."""
 
 from __future__ import annotations
 
@@ -24,8 +24,14 @@ QUERY_PREFIX = "search_query: "
 
 
 def _post(path: str, payload: dict[str, object], timeout: int = 300) -> dict[str, object]:
+    return _post_url(f"{settings.ollama_host}{path}", payload, timeout)
+
+
+def _post_url(
+    url: str, payload: dict[str, object], timeout: int = 300
+) -> dict[str, object]:
     req = urllib.request.Request(
-        f"{settings.ollama_host}{path}",
+        url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -48,10 +54,18 @@ def embed(
     for i in range(0, len(texts), batch):
         part = [pre + t for t in texts[i : i + batch]]
         try:
-            d = _post("/api/embed", {"model": model, "input": part})
-            embeddings = d["embeddings"]
-            assert isinstance(embeddings, list)
-            out.extend(embeddings)
+            if settings.backend == "llamacpp":
+                d = _post_url(
+                    f"{settings.llamacpp_embed_url}/v1/embeddings", {"input": part}
+                )
+                data = d["data"]
+                assert isinstance(data, list)
+                out.extend(r["embedding"] for r in sorted(data, key=lambda x: x["index"]))
+            else:
+                d = _post("/api/embed", {"model": model, "input": part})
+                embeddings = d["embeddings"]
+                assert isinstance(embeddings, list)
+                out.extend(embeddings)
         except urllib.error.HTTPError as e:
             raise RuntimeError(
                 f"Ollama embedding failed ({e.code}). Is `ollama serve` running and "
