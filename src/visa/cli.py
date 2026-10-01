@@ -372,11 +372,11 @@ def _answer_once(
 
     # Decided once: the same findings go into the prompt and onto the screen. A rule
     # that needs a fact asks for it here, before the model writes a word.
-    def _ask(question: str) -> str:
+    def _ask(need: rules.Needs) -> str:
         # Ctrl-D or Ctrl-C at a question means "not answering", not "abandon the
         # answer": the rule stays undecided and the model still answers.
         try:
-            return str(c.input(f"[cyan]? {question}[/cyan] "))
+            return str(c.input(f"[cyan]? {need.question}[/cyan] "))
         except (EOFError, KeyboardInterrupt):
             c.print()
             return ""

@@ -17,8 +17,8 @@ def _script(*replies: str):
     asked: list[str] = []
     it = iter(replies)
 
-    def ask(question: str) -> str:
-        asked.append(question)
+    def ask(need: rules.Needs) -> str:
+        asked.append(need.question)
         return next(it, "")
 
     return ask, asked
