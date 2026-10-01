@@ -178,7 +178,11 @@ CPT_SOURCES = (
 
 
 def _cpt_applies(f: dict[str, object]) -> bool:
-    return bool(f.get("mentions_cpt")) or _num(f.get("cpt_full_time_months")) is not None
+    """Only when the question is about CPT. A month count saved in the profile supplies
+    the number then; it must not put the rule in play by itself. It did: asked "I'm on
+    post-completion OPT and a co-founder — what are my options?", the app decided the
+    person was INELIGIBLE for OPT because the profile held 14 CPT months."""
+    return bool(f.get("mentions_cpt"))
 
 
 def _cpt_decide(f: dict[str, object]) -> Outcome | Needs:

@@ -42,7 +42,7 @@ def test_every_quote_is_verbatim_in_force_text(source, served) -> None:
     [(12, True), (12.0, True), ("14", True), (11, False), (0, False)],
 )
 def test_the_one_year_boundary(months, barred) -> None:
-    (o,) = rules.evaluate({"cpt_full_time_months": months})
+    (o,) = rules.evaluate({"mentions_cpt": True, "cpt_full_time_months": months})
     assert isinstance(o, rules.Outcome)
     assert o.decision.startswith("INELIGIBLE") is barred
 
@@ -58,7 +58,9 @@ def test_a_rule_that_is_not_in_play_says_nothing() -> None:
 
 
 def test_the_finding_quotes_its_law_in_the_prompt() -> None:
-    block = rules.render(rules.evaluate({"cpt_full_time_months": 12}))
+    block = rules.render(
+        rules.evaluate({"mentions_cpt": True, "cpt_full_time_months": 12})
+    )
     assert block.startswith("RULE FINDINGS")
     assert "INELIGIBLE for post-completion OPT at the same educational level" in block
     assert "8 CFR § 214.2(f)(10)(i)" in block and "USCIS PM Vol 2, Pt F, Ch 5, B" in block
@@ -79,13 +81,15 @@ def test_an_unrelated_question_costs_no_model_call(monkeypatch) -> None:
 
 
 def test_the_screen_shows_the_finding_without_the_prompt_instructions() -> None:
-    shown = rules.render(rules.evaluate({"cpt_full_time_months": 12}), head="")
+    shown = rules.render(
+        rules.evaluate({"mentions_cpt": True, "cpt_full_time_months": 12}), head=""
+    )
     assert shown.lstrip().startswith("INELIGIBLE") and "Open your answer" not in shown
 
 
 def test_below_the_limit_does_not_claim_eligibility() -> None:
     """The rule only lifts one bar. Saying "not barred" was read as "eligible"."""
-    (o,) = rules.evaluate({"cpt_full_time_months": 9})
+    (o,) = rules.evaluate({"mentions_cpt": True, "cpt_full_time_months": 9})
     assert "other OPT requirements still apply" in o.decision
 
 
@@ -203,7 +207,7 @@ def test_a_day_count_the_code_did_not_produce_is_flagged(prose, flagged) -> None
     ],
 )
 def test_a_verdict_the_code_did_not_reach_is_flagged(months, prose, flagged) -> None:
-    decided = rules.evaluate({"cpt_full_time_months": months})
+    decided = rules.evaluate({"mentions_cpt": True, "cpt_full_time_months": months})
     assert bool(rules.contradictions(prose, decided)) is flagged
 
 
@@ -292,3 +296,15 @@ def test_dates_the_code_settled_are_not_flagged_as_invented() -> None:
         "The cut-off is 2016-02-01.", prof={}, hits=[], settled=settled
     )
     assert flagged and "2016-02-01" in flagged[0]
+
+
+def test_a_saved_fact_does_not_put_its_rule_in_play() -> None:
+    """The profile's CPT months answered a co-founder's unrelated question with an
+    eligibility verdict. A saved fact supplies a number; the question decides if it
+    matters."""
+    q = "I am on my post-completion OPT and I co-founded a startup. What are my options?"
+    facts = {"cpt_full_time_months": "14", **rules.read_situation(q)}
+    assert not any(r.rule == "cpt_full_time_year" for r in rules.evaluate(facts))
+    q2 = "Can I still get OPT after my CPT?"
+    facts2 = {"cpt_full_time_months": "14", "mentions_cpt": True}
+    assert any(r.rule == "cpt_full_time_year" for r in rules.evaluate(facts2)), q2
