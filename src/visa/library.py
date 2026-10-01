@@ -9,11 +9,12 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from . import chunk, embed, fetch, profile, store
-from .config import settings
+from .config import RESOURCES, settings
 from .sources import Source, load_defs
 
 Progress = Callable[[str, float], None]  # (what is happening, 0..1 overall)
@@ -29,12 +30,35 @@ class Built:
     failed: list[tuple[str, str]] = field(default_factory=list)  # (source, error)
 
 
+def missing() -> list[str]:
+    """Corpus sources not yet indexed. A partial library is not a built one: counting
+    "any source" as built hid the retry after the statute's site was down."""
+    return [s.slug for s in load_defs() if not (s.dir / "vectors.npy").exists()]
+
+
 def is_built() -> bool:
-    return any((s.dir / "vectors.npy").exists() for s in load_defs())
+    return not missing()
+
+
+def _seed(src: Source) -> bool:
+    """Copy the source documents the app ships with (raw files + their manifest, with
+    each file's SHA-256 and edition date) into the library. The first build then needs
+    no network: on the day the packaged app was first tested end to end,
+    uscode.house.gov was down for maintenance and the statute could not be fetched."""
+    seed = RESOURCES / "seed" / src.slug
+    if not (seed / "raw").is_dir() or any((src.dir / "raw").glob("*")):
+        return False
+    src.dir.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(seed / "raw", src.dir / "raw", dirs_exist_ok=True)
+    if (seed / "manifest.json").exists():
+        shutil.copy2(seed / "manifest.json", src.dir / "manifest.json")
+    return True
 
 
 def index_source(src: Source, progress: Progress = _quiet, refetch: bool = True) -> int:
-    if refetch and src.all_urls:
+    if _seed(src):
+        progress(f"{src.title}: using the copy shipped with the app", -1)
+    elif refetch and src.all_urls:
         fetch.fetch(src, progress=lambda m: progress(f"{src.title}: {m}", -1))
     rows = chunk.chunk_source(src)
     if not rows:
@@ -74,10 +98,11 @@ def build(progress: Progress = _quiet, only: str | None = None) -> Built:
     caller must say the library is incomplete."""
     settings.ensure_dirs()
     profile.init()
-    defs = [s for s in load_defs() if not only or s.slug == only]
+    todo = set(missing()) if only is None else {only}
+    defs = [s for s in load_defs() if s.slug in todo]
     out = Built()
     for i, s in enumerate(defs):
-        base, width = i / len(defs), 1 / len(defs)
+        base, width = i / max(1, len(defs)), 1 / max(1, len(defs))
 
         def scaled(
             msg: str, frac: float, base: float = base, width: float = width

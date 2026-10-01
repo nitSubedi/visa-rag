@@ -33,6 +33,17 @@ echo "• models"
 cp "$CHAT" "$RT/models/chat.gguf"     # real copies: symlinks do not survive bundling
 cp "$EMBED" "$RT/models/embed.gguf"
 
+echo "• source documents (public law, ~25 MB): the first build then needs no network"
+rm -rf build/seed
+for d in ~/.visa/corpus/*/; do
+  slug=$(basename "$d")
+  [ -f "$d/manifest.json" ] && [ -d "$d/raw" ] || continue
+  mkdir -p "build/seed/$slug"
+  cp -R "$d/raw" "build/seed/$slug/raw"
+  cp "$d/manifest.json" "build/seed/$slug/manifest.json"
+done
+du -sh build/seed
+
 echo "• app"
 uv run --with pyinstaller pyinstaller --noconfirm --clean \
   --workpath build/pyinstaller --distpath dist packaging/visa.spec

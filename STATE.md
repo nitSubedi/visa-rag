@@ -1015,6 +1015,29 @@ the person, and the model's own reading is labelled as such. What it does not fi
 misapplied transfer rule), and some quoted passages are true but beside the point.
 Default since `answer_format = "cited"`; `VISA_ANSWER_FORMAT=prose` restores prose.
 
+**32. A desktop app that carries everything.** 2026-10-01.
+- *Runtime:* llama.cpp's own server (pinned `b11321`, 41 MB) runs the same two model files
+  as Ollama, started by `runtime.py` on free localhost ports. Short prompts matched Ollama
+  word for word and embeddings at cosine 1.000000, but full held-out answers diverge in
+  wording (0/32 identical) with equal quality (cited mode, shown 86/90 vs 84/90). **Measure
+  on the runtime that ships.** Side finding: under a JSON schema both runtimes answered
+  "80" to 150 - 70 - 40 — constrained output can cost a small model its arithmetic.
+- *Window:* pywebview over `service.py` (the CLI's pipeline as data). Found only in the
+  packaged app: the page loaded by path stayed blank (PyInstaller's Frameworks -> Resources
+  symlink) — now loaded by content; and nothing appeared for ~35 s while the model loaded —
+  now "Starting up" at once. Found in first real use: a saved profile fact (from my own
+  test in the same folder) made the CPT rule fire on an unrelated question — rules now apply
+  only when the question is about them.
+- *Installer:* `packaging/build_macos.sh` -> `dist/Visa-Research-0.1.0-macos-arm64.dmg`
+  (2.7 GB, Apple Silicon, ad-hoc signed; Gatekeeper asks once — Privacy & Security -> Open
+  Anyway on macOS 15+). Ships the source documents (25 MB, with their manifests and
+  hashes): during the first full test uscode.house.gov was down for maintenance and the
+  statute failed; with the documents shipped the first build needs no network — 15,625
+  passages, 7 minutes, none failed, with the site still down. A partial library now counts
+  as unbuilt and offers to finish. `VISA_SELFTEST` runs a built app headless.
+- *Not done:* Windows/Intel builds; the app does not refresh the corpus itself (`visa
+  refresh` does); answer text is still the model's (finding 31).
+
 ## Conventions
 
 `uv` + PEP 621, `src/` layout, `pydantic-settings` for config (`VISA_*` env vars),

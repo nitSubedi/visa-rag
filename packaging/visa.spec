@@ -12,6 +12,7 @@ datas = [
     (str(ROOT / "register"), "register"),
     (str(ROOT / "bulletin"), "bulletin"),
     (str(RUNTIME / "models"), "runtime/models"),
+    (str(ROOT / "build" / "seed"), "seed"),
 ]
 # llama.cpp's server and the libraries released with it, kept together and executable.
 binaries = [(str(p), "runtime/bin") for p in sorted((RUNTIME / "bin").iterdir()) if p.is_file()]

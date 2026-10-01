@@ -37,6 +37,7 @@ class Api:
     def status(self) -> dict[str, object]:
         return {
             "built": library.is_built(),
+            "missing": library.missing(),
             "backend": settings.backend,
             "ready": self.ready.is_set(),
             "boot_error": self.boot_error,

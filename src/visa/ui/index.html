@@ -81,9 +81,9 @@
 
   <section id="setup" class="card hidden" aria-live="polite">
     <h2>One-time setup</h2>
-    <p>The app builds its library of the law on this computer: it downloads the
-      regulations, the statute and the Policy Manual and indexes them. This takes a few
-      minutes and needs the internet once. After that it works offline.</p>
+    <p>The app builds its library of the law on this computer, from the regulations, the
+      statute and the Policy Manual it ships with. This takes about seven minutes, needs no
+      internet, and happens once. Your fan may run while it does.</p>
     <div class="bar"><div id="setup-bar"></div></div>
     <p id="setup-msg" class="muted"></p>
     <p id="setup-err" class="hidden" style="color:var(--bad)"></p>
@@ -145,7 +145,15 @@ async function boot() {
     $("results").appendChild(c); return;
   }
   if (s.built) { $("asker").classList.remove("hidden"); $("q").focus(); }
-  else { $("setup").classList.remove("hidden"); }
+  else { showSetup(s); }
+}
+
+function showSetup(s) {
+  $("setup").classList.remove("hidden");
+  if (s.missing && s.missing.length && s.missing.length < 5) {
+    $("setup-msg").textContent = "Still to build: " + s.missing.join(", ");
+    $("setup-btn").textContent = "Finish building the library";
+  }
 }
 
 $("setup-btn").addEventListener("click", async () => {
@@ -160,6 +168,7 @@ $("setup-btn").addEventListener("click", async () => {
       clearInterval(poll);
       if (s.error) { $("setup-err").textContent = s.error; $("setup-err").classList.remove("hidden"); }
       if (s.built) { $("setup").classList.add("hidden"); $("asker").classList.remove("hidden"); }
+      else { showSetup(s); }
       $("setup-btn").disabled = false;
     }
   }, 700);

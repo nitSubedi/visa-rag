@@ -14,7 +14,8 @@ immigration attorney.
 
 - A Mac with Apple Silicon (M1 or newer) and macOS 12 or later
 - About 4 GB of free space
-- Internet for the one-time setup (afterwards it works offline)
+- No internet is required; when online it checks once a day for a newer Visa Bulletin
+  table and court-injunction list
 
 ## Install
 
@@ -29,14 +30,14 @@ immigration attorney.
 ## First launch
 
 - **Starting up** (about half a minute): the app loads its model. No internet needed.
-- **Build the library** (one time, a few minutes, needs internet): it downloads the
-  regulations, the statute and the Policy Manual and indexes them on your Mac. Your fan
+- **Build the library** (one time, about seven minutes, no internet needed): it indexes
+  the regulations, the statute and the Policy Manual that come with the app. Your fan
   may run while it does.
 - Then ask anything. If a rule needs a fact about you (for example how many months of
   full-time CPT you did), the app asks before answering.
 
 ## What it sends over the internet
 
-Only downloads of public law: the library during setup, and once a day a check for a
-newer Visa Bulletin table and court-injunction list. Nothing you type, and nothing
+Only a once-a-day check for a newer Visa Bulletin table and court-injunction list
+(public data). Nothing you type, and nothing
 from your profile, is ever sent.
