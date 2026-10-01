@@ -19,6 +19,12 @@ dependencies = [
 
 [project.scripts]
 visa = "visa.cli:app"
+visa-app = "visa.app:main"
+
+[project.optional-dependencies]
+app = [
+    "pywebview>=6.2.1",
+]
 
 [build-system]
 requires = ["hatchling"]
@@ -49,7 +55,7 @@ files = ["src/visa"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["pyarrow.*", "pypdf.*"]
+module = ["pyarrow.*", "pypdf.*", "webview.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visa Research</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --ink: #1b1d21; --muted: #5d636e; --line: #dfe1e5;
+    --accent: #1f5fd6; --ok: #1d7a46; --ok-bg: #e9f6ee; --warn: #8a5a00; --warn-bg: #fff6e0;
+    --bad: #b3261e; --bad-bg: #fdecea; --quote: #f1f4fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a; --panel: #1d2024; --ink: #e8e9eb; --muted: #a2a8b3; --line: #30343a;
+      --accent: #7ba7ff; --ok: #6fd39b; --ok-bg: #16281e; --warn: #f2c063; --warn-bg: #2b2414;
+      --bad: #ff8a80; --bad-bg: #2d1817; --quote: #232833;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 20px 48px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 16px 18px; margin: 14px 0; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+             color: var(--muted); margin: 0 0 10px; }
+  textarea { width: 100%; min-height: 76px; resize: vertical; padding: 10px 12px;
+             border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
+             color: var(--ink); font: inherit; }
+  input[type=text] { width: 100%; padding: 8px 10px; border: 1px solid var(--line);
+                     border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
+  button { background: var(--accent); color: #fff; border: 0; border-radius: 8px;
+           padding: 9px 18px; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+  .spacer { flex: 1; }
+  .finding { border-color: var(--ok); background: var(--ok-bg); }
+  .finding h2 { color: var(--ok); }
+  .notice { border-color: var(--bad); background: var(--bad-bg); }
+  .notice h2 { color: var(--bad); }
+  .needs { border-color: var(--warn); background: var(--warn-bg); }
+  .needs h2 { color: var(--warn); }
+  .decision { font-weight: 600; }
+  .because { color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
+  blockquote { margin: 8px 0; padding: 8px 12px; background: var(--quote);
+               border-left: 3px solid var(--accent); border-radius: 4px; }
+  .cite { font-size: 12px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 2px; }
+  .applies { font-size: 13px; color: var(--muted); margin: 2px 0 10px 4px; }
+  .applies b { font-weight: 600; }
+  pre { white-space: pre-wrap; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+        margin: 0; color: var(--ink); }
+  ul.problems { margin: 0; padding-left: 18px; color: var(--bad); }
+  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 12px 0; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  .muted { color: var(--muted); }
+  .hidden { display: none; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 28px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Visa Research</h1>
+  <p class="sub">Answers from 8 CFR, the INA and the USCIS Policy Manual, on this computer.
+    Nothing you type leaves it.</p>
+
+  <section id="setup" class="card hidden" aria-live="polite">
+    <h2>One-time setup</h2>
+    <p>The app builds its library of the law on this computer: it downloads the
+      regulations, the statute and the Policy Manual and indexes them. This takes a few
+      minutes and needs the internet once. After that it works offline.</p>
+    <div class="bar"><div id="setup-bar"></div></div>
+    <p id="setup-msg" class="muted"></p>
+    <p id="setup-err" class="hidden" style="color:var(--bad)"></p>
+    <div class="row"><span class="spacer"></span><button id="setup-btn">Build the library</button></div>
+  </section>
+
+  <section id="asker" class="card hidden">
+    <label for="q"><h2>Your question</h2></label>
+    <textarea id="q" placeholder="e.g. I filed my STEM OPT extension on time but my EAD expired. Can I keep working?"></textarea>
+    <div class="row">
+      <span id="busy" class="muted hidden">Reading the sources…</span>
+      <span class="spacer"></span>
+      <button id="ask">Ask</button>
+    </div>
+  </section>
+
+  <div id="results" aria-live="polite"></div>
+
+  <footer>This is research, not legal advice. For anything that affects your status,
+    confirm with your DSO (free, and they control your SEVIS record) or an immigration
+    attorney.</footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, cls, text) => {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;   // text only: never interpreted as HTML
+  return e;
+};
+const card = (title, cls) => {
+  const c = el("section", "card" + (cls ? " " + cls : ""));
+  c.appendChild(el("h2", null, title));
+  return c;
+};
+
+let lastQuestion = "";
+
+async function api() {
+  await new Promise((ok) => {
+    if (window.pywebview && window.pywebview.api) return ok();
+    window.addEventListener("pywebviewready", ok, { once: true });
+  });
+  return window.pywebview.api;
+}
+
+async function boot() {
+  const a = await api();
+  const s = await a.status();
+  if (s.built) { $("asker").classList.remove("hidden"); $("q").focus(); }
+  else { $("setup").classList.remove("hidden"); }
+}
+
+$("setup-btn").addEventListener("click", async () => {
+  const a = await api();
+  $("setup-btn").disabled = true;
+  await a.start_setup();
+  const poll = setInterval(async () => {
+    const s = await a.status();
+    $("setup-bar").style.width = Math.round((s.progress || 0) * 100) + "%";
+    $("setup-msg").textContent = s.message || "";
+    if (!s.running) {
+      clearInterval(poll);
+      if (s.error) { $("setup-err").textContent = s.error; $("setup-err").classList.remove("hidden"); }
+      if (s.built) { $("setup").classList.add("hidden"); $("asker").classList.remove("hidden"); }
+      $("setup-btn").disabled = false;
+    }
+  }, 700);
+});
+
+async function ask(question, replies) {
+  const a = await api();
+  $("ask").disabled = true;
+  $("busy").classList.remove("hidden");
+  try {
+    render(await a.ask(question, replies || null));
+  } catch (e) {
+    const r = $("results"); r.replaceChildren();
+    const c = card("Something went wrong", "notice"); c.appendChild(el("p", null, String(e)));
+    r.appendChild(c);
+  } finally {
+    $("ask").disabled = false;
+    $("busy").classList.add("hidden");
+  }
+}
+
+$("ask").addEventListener("click", () => {
+  const q = $("q").value.trim();
+  if (!q) return;
+  lastQuestion = q;
+  ask(q);
+});
+$("q").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("ask").click();
+});
+
+function render(r) {
+  const out = $("results");
+  out.replaceChildren();
+
+  // A rule needs a fact before it can decide: ask for it, then ask again.
+  if (!r.answered && r.needs.length && !r.answer) {
+    const c = card("Before answering, the app needs to know", "needs");
+    const inputs = {};
+    for (const n of r.needs) {
+      const lab = el("label", null, n.question);
+      lab.style.display = "block"; lab.style.margin = "8px 0 4px";
+      const inp = el("input"); inp.type = "text"; inputs[n.fact] = inp;
+      c.appendChild(lab); c.appendChild(inp);
+    }
+    const row = el("div", "row"); row.appendChild(el("span", "spacer"));
+    const go = el("button", null, "Continue");
+    go.addEventListener("click", () => {
+      const replies = {};
+      for (const [fact, inp] of Object.entries(inputs)) if (inp.value.trim()) replies[fact] = inp.value.trim();
+      ask(lastQuestion, replies);
+    });
+    row.appendChild(go); c.appendChild(row); out.appendChild(c);
+    return;
+  }
+
+  for (const w of r.warnings) {
+    const c = card("Note", "needs"); c.appendChild(el("p", null, w)); out.appendChild(c);
+  }
+
+  for (const f of r.findings) {
+    const c = card("Decided by the app from the law and your facts", "finding");
+    c.appendChild(el("p", "decision", f.decision));
+    c.appendChild(el("p", "because", "Because: " + f.because));
+    for (const l of f.law) {
+      const q = el("blockquote"); q.appendChild(el("span", "cite", l.citation));
+      q.appendChild(el("span", null, "“" + l.quote + "”")); c.appendChild(q);
+    }
+    out.appendChild(c);
+  }
+
+  if (r.declined) {
+    const c = card("No answer"); c.appendChild(el("p", null, r.declined)); out.appendChild(c);
+  }
+
+  if (r.answer) {
+    const c = card("Answer"); c.appendChild(el("p", null, r.answer)); out.appendChild(c);
+  }
+
+  if (r.sources.length) {
+    const c = card("What the sources say — each quote checked word for word");
+    for (const s of r.sources) {
+      const q = el("blockquote"); q.appendChild(el("span", "cite", "[" + s.n + "] " + s.citation));
+      q.appendChild(el("span", null, "“" + s.quote + "”")); c.appendChild(q);
+      if (s.applies) {
+        const p = el("p", "applies"); p.appendChild(el("b", null, "How it applies (the app's reading): "));
+        p.appendChild(document.createTextNode(s.applies)); c.appendChild(p);
+      }
+    }
+    out.appendChild(c);
+  }
+
+  if (r.follow_up) {
+    const c = card("One thing that would change this", "needs");
+    c.appendChild(el("p", null, r.follow_up)); out.appendChild(c);
+  }
+
+  for (const n of r.notices) {
+    const c = card("A court has suspended part of this law", "notice");
+    c.appendChild(el("p", "decision", n.headline));
+    if (n.instead) c.appendChild(el("p", null, "What governs instead: " + n.instead));
+    if (n.still_in_force) c.appendChild(el("p", null, "Still in force: " + n.still_in_force));
+    c.appendChild(el("p", "because", "Litigation status last checked " + n.checked +
+      (n.stale ? " — out of date, verify before relying on it" : "")));
+    out.appendChild(c);
+  }
+
+  if (r.deadlines) {
+    const c = card("Your deadlines (calculated from your profile)");
+    c.appendChild(el("pre", null, r.deadlines)); out.appendChild(c);
+  }
+
+  if (r.problems.length) {
+    const c = card("Check these against the sources", "notice");
+    const ul = el("ul", "problems"); for (const p of r.problems) ul.appendChild(el("li", null, p));
+    c.appendChild(ul); out.appendChild(c);
+  }
+}
+
+boot();
+</script>
+</body>
+</html>
