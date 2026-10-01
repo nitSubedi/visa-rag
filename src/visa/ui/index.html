@@ -58,13 +58,26 @@
   .muted { color: var(--muted); }
   .hidden { display: none; }
   footer { color: var(--muted); font-size: 12px; margin-top: 28px; }
+  .beta { background: var(--warn-bg); border: 1px solid var(--warn); color: var(--ink);
+          border-radius: 8px; padding: 10px 14px; margin-bottom: 18px; font-size: 13px; }
+  .beta b { color: var(--warn); }
 </style>
 </head>
 <body>
 <main>
+  <div class="beta" role="note"><b>Beta.</b> Research, not legal advice: the rules marked
+    "decided by the app" are computed from the quoted law, but the written answer can be
+    wrong or miss something. Confirm anything that affects your status with your DSO or an
+    immigration attorney.</div>
   <h1>Visa Research</h1>
   <p class="sub">Answers from 8 CFR, the INA and the USCIS Policy Manual, on this computer.
     Nothing you type leaves it.</p>
+
+  <section id="starting" class="card hidden" aria-live="polite">
+    <h2>Starting up</h2>
+    <p class="muted">Loading the model on this computer. This takes about half a minute
+      the first time and needs no internet.</p>
+  </section>
 
   <section id="setup" class="card hidden" aria-live="polite">
     <h2>One-time setup</h2>
@@ -120,7 +133,17 @@ async function api() {
 
 async function boot() {
   const a = await api();
-  const s = await a.status();
+  let s = await a.status();
+  if (!s.ready) {
+    // The model loads after the window opens (~30 s the first time).
+    $("starting").classList.remove("hidden");
+    while (!s.ready) { await new Promise((r) => setTimeout(r, 800)); s = await a.status(); }
+    $("starting").classList.add("hidden");
+  }
+  if (s.boot_error) {
+    const c = card("The app could not start", "notice"); c.appendChild(el("p", null, s.boot_error));
+    $("results").appendChild(c); return;
+  }
   if (s.built) { $("asker").classList.remove("hidden"); $("q").focus(); }
   else { $("setup").classList.remove("hidden"); }
 }

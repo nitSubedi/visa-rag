@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from pydantic import Field
@@ -16,6 +17,12 @@ TIERS: dict[int, tuple[str, float]] = {
     9: ("personal", 1.00),
 }
 
+
+
+# Data shipped with the code (corpus definitions, the injunction register, the Visa
+# Bulletin table). In the repo they sit beside src/; in the packaged desktop app,
+# PyInstaller unpacks them under sys._MEIPASS.
+RESOURCES = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
 
 class Settings(BaseSettings):
     """Runtime configuration. Override any field with `VISA_<FIELD>` or a `.env`."""
@@ -141,7 +148,7 @@ class Settings(BaseSettings):
         """The table shipped with the code. Empty until a maintainer imports a month:
         travel.state.gov refuses scripted clients, so a person saves the page and
         scripts/bulletin_import.py reads it — cutoff dates are never typed by hand."""
-        return Path(__file__).resolve().parents[2] / "bulletin"
+        return RESOURCES / "bulletin"
 
     @property
     def register(self) -> Path:
@@ -164,14 +171,14 @@ class Settings(BaseSettings):
 
     @property
     def source_defs(self) -> Path:
-        return Path(__file__).resolve().parents[2] / "sources"
+        return RESOURCES / "sources"
 
     @property
     def register_defs(self) -> Path:
         """The litigation register shipped with the code. Not in `sources/`: that
         directory is corpus definitions, and load_defs builds a Source from every file
         in it — putting the register there broke `visa refresh` outright."""
-        return Path(__file__).resolve().parents[2] / "register"
+        return RESOURCES / "register"
 
     def ensure_dirs(self) -> None:
         for d in (

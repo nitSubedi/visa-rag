@@ -25,7 +25,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from .config import settings
+from .config import RESOURCES, settings
 
 
 @dataclass
@@ -48,8 +48,7 @@ def runtime_dir() -> Path:
     otherwise VISA_RUNTIME_DIR points at them."""
     if env := os.environ.get("VISA_RUNTIME_DIR"):
         return Path(env)
-    base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[2]))
-    return base / "runtime"
+    return RESOURCES / "runtime"
 
 
 def _binary(root: Path) -> Path:
