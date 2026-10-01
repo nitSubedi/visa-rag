@@ -31,9 +31,17 @@ class Api:
             "error": "",
         }
         self._lock = threading.Lock()
+        self.ready = threading.Event()  # the model is loaded and answering
+        self.boot_error = ""
 
     def status(self) -> dict[str, object]:
-        return {"built": library.is_built(), "backend": settings.backend, **self._setup}
+        return {
+            "built": library.is_built(),
+            "backend": settings.backend,
+            "ready": self.ready.is_set(),
+            "boot_error": self.boot_error,
+            **self._setup,
+        }
 
     def start_setup(self) -> dict[str, object]:
         """Build the library in the background; the page polls status()."""
@@ -82,21 +90,72 @@ class Api:
         return self.get_profile()
 
 
+def selftest(out: str) -> None:
+    """Run the packaged app's whole pipeline without a window and write what happened:
+    bundled runtime, library build (only VISA_SELFTEST_ONLY's source, to keep it short),
+    one question. For checking a build the way a new user would run it."""
+    import json
+    import os
+    import time
+
+    report: dict[str, object] = {"runtime_missing": runtime.missing()}
+    t = time.monotonic()
+    runtime.start()
+    report["runtime_start_s"] = round(time.monotonic() - t, 1)
+    report["backend"] = settings.backend
+    if not library.is_built():
+        t = time.monotonic()
+        built = library.build(only=os.environ.get("VISA_SELFTEST_ONLY") or None)
+        report["library"] = {
+            "chunks": built.chunks,
+            "failed": built.failed,
+            "seconds": round(time.monotonic() - t, 1),
+        }
+    q = os.environ.get(
+        "VISA_SELFTEST_Q",
+        "I filed my STEM OPT extension on time and my EAD expired. Can I keep working?",
+    )
+    t = time.monotonic()
+    report["result"] = service.ask(q, Index.load()).to_dict()
+    report["answer_s"] = round(time.monotonic() - t, 1)
+    Path(out).write_text(json.dumps(report, indent=1, default=str))
+
+
 def main() -> None:
+    import os
+
+    if out := os.environ.get("VISA_SELFTEST"):
+        updates.refresh_all()
+        selftest(out)
+        return
     import webview  # the desktop extra; the CLI does not need it
 
-    updates.refresh_all()  # quiet, once a day, keeps the shipped copy on any failure
-    if not runtime.missing():
-        runtime.start()  # bundled llama.cpp; otherwise settings stay on Ollama
+    api = Api()
+
+    def boot() -> None:
+        """Runs once the window is up, so the person sees the app at once rather than
+        nothing for the ~30 s the model takes to load."""
+        try:
+            updates.refresh_all()  # quiet, once a day; keeps the shipped copy on failure
+            if not runtime.missing():
+                runtime.start()  # bundled llama.cpp; otherwise settings stay on Ollama
+        except Exception as e:
+            api.boot_error = f"The model could not start: {e}"
+        finally:
+            api.ready.set()
+
     webview.create_window(
         "Visa Research",
-        url=str(UI),
-        js_api=Api(),
+        # The page's content, not its path: inside the packaged app the file sits behind
+        # PyInstaller's Frameworks -> Resources symlink, and loaded by path the window
+        # stayed blank. The page is self-contained (inline style and script).
+        html=UI.read_text(encoding="utf-8"),
+        js_api=api,
         width=1000,
         height=840,
         min_size=(720, 560),
     )
-    webview.start()
+    webview.start(boot)
 
 
 if __name__ == "__main__":
